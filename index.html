@@ -1819,19 +1819,32 @@ async function geocodeAddress(address){
 async function geocodeAllStudios(){
   const btn = document.getElementById('geocodeAllBtn');
   const targets = state.clients.filter(c=> c.address && c.address.trim() && (!c.lat || !c.lng));
-  if(targets.length===0){ renderMapView(); return; }
+  if(targets.length===0){
+    const hasAnyAddress = state.clients.some(c=> c.address && c.address.trim());
+    alert(hasAnyAddress
+      ? 'All studios with an address are already located on the map.'
+      : 'No studios have an address yet. Add one via the Locations button first, then come back and try this again.');
+    renderMapView();
+    return;
+  }
   btn.disabled = true;
   const originalText = btn.innerHTML;
+  let succeeded = 0;
+  const failed = [];
   for(let i=0;i<targets.length;i++){
     btn.innerHTML = `Locating… (${i+1}/${targets.length})`;
     const coords = await geocodeAddress(targets[i].address);
-    if(coords){ targets[i].lat = coords.lat; targets[i].lng = coords.lng; }
+    if(coords){ targets[i].lat = coords.lat; targets[i].lng = coords.lng; succeeded++; }
+    else failed.push(targets[i].name);
     if(i < targets.length-1) await new Promise(r=>setTimeout(r, 1100)); // be polite to the free geocoding service
   }
   await saveClients();
   btn.disabled = false;
   btn.innerHTML = originalText;
   renderMapView();
+  if(failed.length>0){
+    alert(`Placed ${succeeded} of ${targets.length} studios on the map.\n\nCouldn't find a location for: ${failed.join(', ')}.\nTry making their address more specific (add city and country) via Locations, then click this button again.`);
+  }
 }
 document.getElementById('geocodeAllBtn').addEventListener('click', geocodeAllStudios);
 
@@ -1855,7 +1868,19 @@ function renderMapView(){
     return !(c && c.lat && c.lng);
   });
 
+  const studiosWithAddress = studios.filter(name=>{
+    const c = clientByName(name);
+    return c && c.address && c.address.trim();
+  });
   document.getElementById('mapEmpty').style.display = geocoded.length===0 ? 'block' : 'none';
+  if(geocoded.length===0){
+    const emptyEl = document.getElementById('mapEmpty');
+    if(studiosWithAddress.length===0){
+      emptyEl.textContent = 'No studios have an address yet — add one via Locations, then come back and click "Locate studios on map."';
+    } else {
+      emptyEl.textContent = `${studiosWithAddress.length} studio${studiosWithAddress.length===1?'':'s'} ${studiosWithAddress.length===1?'has':'have'} an address but haven't been placed on the map yet — click "Locate studios on map" above to do that now.`;
+    }
+  }
 
   const stats = computeStats(state.invoices);
   const maxRevenue = Math.max(1, ...geocoded.map(g=> stats.byClient[g.name]||0));
