@@ -140,6 +140,14 @@
   .hot-change.up{ color:var(--mint); }
   .hot-change.down{ color:var(--coral); }
   .cc-empty{ font-size:12.5px; color:var(--text-3); }
+  .breakeven-row{ display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
+  .be-stat{ flex-shrink:0; }
+  .be-num{ font-size:24px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--text-1); }
+  .be-lbl{ font-size:11.5px; color:var(--text-3); max-width:220px; margin-top:4px; line-height:1.4; }
+  .be-progress-wrap{ flex:1; min-width:200px; }
+  .be-progress-track{ width:100%; height:12px; border-radius:8px; background:rgba(255,255,255,0.08); overflow:hidden; }
+  .be-progress-fill{ height:100%; border-radius:8px; background:linear-gradient(90deg, var(--coral), var(--amber), var(--mint)); transition:width .4s ease; }
+  .be-progress-text{ font-size:12px; color:var(--text-2); margin-top:8px; }
   .health-summary{ display:flex; gap:10px; flex-wrap:wrap; }
   .health-pill{ display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); cursor:default; }
   .health-pill .hp-dot{ width:8px; height:8px; border-radius:50%; }
@@ -586,6 +594,7 @@
     <button class="tab" data-view="stock" data-i18n="tabStock">Stock</button>
     <button class="tab" data-view="map" data-i18n="tabMap">Map</button>
     <button class="tab" data-view="monthly" data-i18n="tabMonthly">Monthly</button>
+    <button class="tab" data-view="expenses" data-i18n="tabExpenses">Expenses</button>
     <button class="tab" data-view="generate" data-i18n="tabGenerate">Generate invoice</button>
   </div>
 
@@ -749,7 +758,7 @@
       <div class="invoice-table-wrap">
         <table class="invoice-table">
           <thead>
-            <tr><th>Client</th><th>Invoice #</th><th>Date</th><th class="r">Total</th><th>Status</th><th></th></tr>
+            <tr><th data-i18n="colClient">Client</th><th data-i18n="colInvoiceNo">Invoice #</th><th data-i18n="colDate">Date</th><th class="r" data-i18n="colTotal">Total</th><th data-i18n="colStatus">Status</th><th></th></tr>
           </thead>
           <tbody id="invoiceRows"></tbody>
         </table>
@@ -848,7 +857,7 @@
       <div class="invoice-table-wrap">
         <table class="invoice-table">
           <thead>
-            <tr><th>Studio</th><th>Product</th><th class="r">Qty</th><th>Date</th><th>Note</th><th></th></tr>
+            <tr><th data-i18n="colStudio">Studio</th><th data-i18n="colProduct">Product</th><th class="r" data-i18n="colQty">Qty</th><th data-i18n="colDate">Date</th><th data-i18n="colNote">Note</th><th></th></tr>
           </thead>
           <tbody id="stockLogRows"></tbody>
         </table>
@@ -872,6 +881,92 @@
       <div id="mapEmpty" class="cc-empty" style="padding:16px 4px; display:none;">No studios have an address yet — add one via Locations, then click "Locate studios on map."</div>
     </div>
     <div id="mapMissingList" class="cc-empty" style="padding:0 4px;"></div>
+  </div>
+
+  <!-- ================= EXPENSES ================= -->
+  <div id="expensesView" class="view">
+    <div class="section-head">
+      <h2 data-i18n="hdrCashOverview">Cash overview</h2>
+      <select id="expenseMonthSelect" class="task-filter" style="max-width:200px;"></select>
+    </div>
+    <div class="kpis">
+      <div class="glass kpi mint">
+        <div class="lbl" data-i18n="lblCashInBank">Cash in bank</div>
+        <div class="val num" id="exCash">฿0</div>
+        <div class="sub" data-i18n="subCashAllTime">Starting balance + paid − expenses, all time</div>
+      </div>
+      <div class="glass kpi">
+        <div class="lbl" data-i18n="lblRevenueThisMonth">Revenue collected this month</div>
+        <div class="val num" id="exRevenue">฿0</div>
+        <div class="sub" id="exRevenueSub">—</div>
+      </div>
+      <div class="glass kpi coral">
+        <div class="lbl" data-i18n="lblExpensesThisMonth">Expenses this month</div>
+        <div class="val num" id="exExpenses">฿0</div>
+        <div class="sub" id="exExpensesSub">—</div>
+      </div>
+      <div class="glass kpi" id="exProfitCard">
+        <div class="lbl" data-i18n="lblNetProfitThisMonth">Net profit this month</div>
+        <div class="val num" id="exProfit">฿0</div>
+        <div class="sub" data-i18n="subCollectedMinusExpenses">Collected − expenses</div>
+      </div>
+    </div>
+
+    <div class="glass command-centre" style="margin-bottom:20px;">
+      <div class="cc-header">
+        <span class="cc-icon">⚖️</span>
+        <h3 data-i18n="hdrBreakeven">Break-even point</h3>
+      </div>
+      <div class="breakeven-row">
+        <div class="be-stat">
+          <div class="be-num" id="beTarget">฿0</div>
+          <div class="be-lbl" data-i18n="lblBeTarget">Revenue needed each month to cover fixed costs</div>
+        </div>
+        <div class="be-progress-wrap">
+          <div class="be-progress-track"><div class="be-progress-fill" id="beProgressFill"></div></div>
+          <div class="be-progress-text" id="beProgressText">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2 data-i18n="hdrFixedExpenses">Fixed monthly expenses</h2>
+      <button class="btn primary small" id="addFixedExpenseBtn" data-i18n="btnAddFixed">+ Add fixed expense</button>
+    </div>
+    <div class="glass" style="padding:8px 6px; margin-bottom:20px;">
+      <div class="invoice-table-wrap">
+        <table class="invoice-table">
+          <thead><tr><th data-i18n="colName">Name</th><th class="r" data-i18n="colAmountPerMonth">Amount / month</th><th></th></tr></thead>
+          <tbody id="fixedExpenseRows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="section-head">
+      <h2 data-i18n="hdrOneOffExpenses">One-off expenses</h2>
+      <button class="btn primary small" id="addExpenseBtn" data-i18n="btnAddExpense">+ Log an expense</button>
+    </div>
+    <div class="glass" style="padding:8px 6px; margin-bottom:20px;">
+      <div class="invoice-table-wrap">
+        <table class="invoice-table">
+          <thead><tr><th data-i18n="colName">Name</th><th class="r" data-i18n="colAmount">Amount</th><th data-i18n="colDate">Date</th><th data-i18n="colNote">Note</th><th></th></tr></thead>
+          <tbody id="expenseRows"></tbody>
+        </table>
+      </div>
+      <div id="expenseEmpty" class="cc-empty" style="text-align:center; padding:24px; display:none;" data-i18n="emptyNoExpenses">No one-off expenses logged yet.</div>
+    </div>
+
+    <div class="section-head"><h2 data-i18n="hdrCashTrend">Cash flow trend</h2></div>
+    <div class="glass chart-card">
+      <div id="cashFlowChart"></div>
+    </div>
+
+    <div class="glass" style="padding:16px 20px; margin-top:20px;">
+      <div class="field" style="margin-bottom:0;">
+        <label data-i18n="lblStartingBalance">Starting bank balance (before this dashboard's records began)</label>
+        <input type="number" id="startingBalanceInput" placeholder="0" />
+      </div>
+    </div>
   </div>
 
   <!-- ================= GENERATE INVOICE ================= -->
@@ -1038,6 +1133,36 @@
   <div class="sp-footer">KONG Tattoo Care Co., Ltd. · Generated from the Sales Invoice Dashboard</div>
 </div>
 
+<!-- Add/edit expense modal -->
+<div class="overlay" id="expenseModalOverlay">
+  <div class="glass modal" style="width:400px;">
+    <h3 id="expenseModalTitle">Log expense</h3>
+    <div class="field">
+      <label data-i18n="colName">Name</label>
+      <input type="text" id="efName" placeholder="e.g. Packaging supplies" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label data-i18n="colAmount">Amount (THB)</label>
+        <input type="number" id="efAmount" min="0" value="0" />
+      </div>
+      <div class="field" id="efDateWrap">
+        <label data-i18n="colDate">Date</label>
+        <input type="date" id="efDate" />
+      </div>
+    </div>
+    <div class="field" id="efNoteWrap">
+      <label data-i18n="colNote">Note (optional)</label>
+      <input type="text" id="efNote" placeholder="" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="efCancel" data-i18n="btnCancel">Cancel</button>
+      <button class="btn ghost" id="efDelete" style="display:none; color:var(--coral);" data-i18n="btnDelete">Delete</button>
+      <button class="btn primary" id="efSave" data-i18n="btnSave">Save</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add stock entry modal -->
 <div class="overlay" id="stockModalOverlay">
   <div class="glass modal" style="width:420px;">
@@ -1128,6 +1253,18 @@ const TRANSLATIONS = {
     hdrProducts: 'Products', hdrStudios: 'Studios', hdrSyncDevices: 'Sync across devices',
     lblTotalInvoicedAll: 'Total invoiced (all months)', lblPaid: 'Paid', lblOutstanding: 'Outstanding',
     lblUnitsSold: 'Units sold', lblTotalInvoiced: 'Total invoiced', lblInvoicedThisMonth: 'Invoiced this month',
+    tabExpenses: 'Expenses',
+    hdrCashOverview: 'Cash overview', lblCashInBank: 'Cash in bank', subCashAllTime: 'Starting balance + paid − expenses, all time',
+    lblRevenueThisMonth: 'Revenue collected this month', lblExpensesThisMonth: 'Expenses this month',
+    lblNetProfitThisMonth: 'Net profit this month', subCollectedMinusExpenses: 'Collected − expenses',
+    hdrBreakeven: 'Break-even point', lblBeTarget: 'Revenue needed each month to cover fixed costs',
+    hdrFixedExpenses: 'Fixed monthly expenses', btnAddFixed: '+ Add fixed expense',
+    colName: 'Name', colAmountPerMonth: 'Amount / month', colAmount: 'Amount', colDate: 'Date', colNote: 'Note',
+    hdrOneOffExpenses: 'One-off expenses', btnAddExpense: '+ Log an expense', emptyNoExpenses: 'No one-off expenses logged yet.',
+    emptyNoFixed: 'No fixed expenses yet — add your recurring monthly costs.',
+    hdrCashTrend: 'Cash flow trend', lblStartingBalance: "Starting bank balance (before this dashboard's records began)",
+    btnCancel: 'Cancel', btnDelete: 'Delete', btnSave: 'Save',
+    colClient: 'Client', colInvoiceNo: 'Invoice #', colTotal: 'Total', colStatus: 'Status', colStudio: 'Studio', colProduct: 'Product', colQty: 'Qty',
   },
   th: {
     pageTitle: 'ใบแจ้งหนี้ขาย',
@@ -1146,6 +1283,18 @@ const TRANSLATIONS = {
     hdrProducts: 'สินค้า', hdrStudios: 'ร้านค้า', hdrSyncDevices: 'ซิงค์ข้ามอุปกรณ์',
     lblTotalInvoicedAll: 'ยอดแจ้งหนี้รวม (ทุกเดือน)', lblPaid: 'ชำระแล้ว', lblOutstanding: 'ค้างชำระ',
     lblUnitsSold: 'จำนวนที่ขาย', lblTotalInvoiced: 'ยอดแจ้งหนี้รวม', lblInvoicedThisMonth: 'ยอดแจ้งหนี้เดือนนี้',
+    tabExpenses: 'ค่าใช้จ่าย',
+    hdrCashOverview: 'ภาพรวมกระแสเงินสด', lblCashInBank: 'เงินสดในธนาคาร', subCashAllTime: 'ยอดเริ่มต้น + ชำระแล้ว − ค่าใช้จ่าย ทั้งหมด',
+    lblRevenueThisMonth: 'รายได้ที่เก็บได้เดือนนี้', lblExpensesThisMonth: 'ค่าใช้จ่ายเดือนนี้',
+    lblNetProfitThisMonth: 'กำไรสุทธิเดือนนี้', subCollectedMinusExpenses: 'เก็บได้ − ค่าใช้จ่าย',
+    hdrBreakeven: 'จุดคุ้มทุน', lblBeTarget: 'รายได้ที่ต้องการต่อเดือนเพื่อครอบคลุมค่าใช้จ่ายคงที่',
+    hdrFixedExpenses: 'ค่าใช้จ่ายคงที่รายเดือน', btnAddFixed: '+ เพิ่มค่าใช้จ่ายคงที่',
+    colName: 'ชื่อ', colAmountPerMonth: 'จำนวนเงิน / เดือน', colAmount: 'จำนวนเงิน', colDate: 'วันที่', colNote: 'หมายเหตุ',
+    hdrOneOffExpenses: 'ค่าใช้จ่ายเฉพาะครั้ง', btnAddExpense: '+ บันทึกค่าใช้จ่าย', emptyNoExpenses: 'ยังไม่มีค่าใช้จ่ายเฉพาะครั้งที่บันทึกไว้',
+    emptyNoFixed: 'ยังไม่มีค่าใช้จ่ายคงที่ — เพิ่มค่าใช้จ่ายประจำเดือนของคุณ',
+    hdrCashTrend: 'แนวโน้มกระแสเงินสด', lblStartingBalance: 'ยอดเงินในธนาคารเริ่มต้น (ก่อนที่แดชบอร์ดนี้จะเริ่มบันทึก)',
+    btnCancel: 'ยกเลิก', btnDelete: 'ลบ', btnSave: 'บันทึก',
+    colClient: 'ลูกค้า', colInvoiceNo: 'เลขที่ใบแจ้งหนี้', colTotal: 'ยอดรวม', colStatus: 'สถานะ', colStudio: 'ร้านค้า', colProduct: 'สินค้า', colQty: 'จำนวน',
   }
 };
 let currentLang = localStorage.getItem('kong-lang') || 'en';
@@ -1261,7 +1410,7 @@ function seedInvoices(){
   ];
 }
 
-let state = { products: [], invoices: [], clients: [], stockEntries: [], studioReports: [] };
+let state = { products: [], invoices: [], clients: [], stockEntries: [], studioReports: [], fixedExpenses: [], expenses: [], startingBalance: 0 };
 const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwupcEW_Lnni-zHT5DLTziGXkZpSKID4EYWyApiT8F6zy7vAvfWdTir5SWdJOjYkAUZ/exec';
 const OLD_BROKEN_URL = 'https://script.google.com/macros/s/AKfycbw2kNXQToeLzzi3XA1D7k-V_W9C0wwk8F8E5-cKZURpHYd3I3Pyg1fqadsWwOKP9Ao/exec';
 let savedSyncUrl = localStorage.getItem('kong-sync-url');
@@ -1289,11 +1438,17 @@ async function syncPull(){
       state.clients = data.clients || [];
       state.stockEntries = data.stockEntries || [];
       state.studioReports = data.studioReports || [];
+      state.fixedExpenses = data.fixedExpenses || [];
+      state.expenses = data.expenses || [];
+      state.startingBalance = data.startingBalance || 0;
       await window.storage.set('kong-products-2026', JSON.stringify(state.products), false);
       await window.storage.set('kong-invoices-2026', JSON.stringify(state.invoices), false);
       await window.storage.set('kong-clients-2026', JSON.stringify(state.clients), false);
       await window.storage.set('kong-stock-2026', JSON.stringify(state.stockEntries), false);
       await window.storage.set('kong-reports-2026', JSON.stringify(state.studioReports), false);
+      await window.storage.set('kong-fixedexpenses-2026', JSON.stringify(state.fixedExpenses), false);
+      await window.storage.set('kong-expenses-2026', JSON.stringify(state.expenses), false);
+      await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false);
       return true;
     }
   }catch(e){ console.error('sync pull failed', e); }
@@ -1327,13 +1482,15 @@ async function syncPush(){
       const res = await fetch(bustCache, { cache:'no-store' });
       const data = await res.json();
       if(data && data.success){
-        const beforeCounts = state.invoices.length + state.products.length + state.clients.length + state.stockEntries.length + state.studioReports.length;
+        const beforeCounts = state.invoices.length + state.products.length + state.clients.length + state.stockEntries.length + state.studioReports.length + state.fixedExpenses.length + state.expenses.length;
         state.invoices = mergeById(state.invoices, data.invoices || []);
         state.products = mergeById(state.products, data.products || []);
         state.clients = mergeByKey(state.clients, data.clients || [], 'name');
         state.stockEntries = mergeById(state.stockEntries, data.stockEntries || []);
         state.studioReports = mergeById(state.studioReports, data.studioReports || []);
-        const afterCounts = state.invoices.length + state.products.length + state.clients.length + state.stockEntries.length + state.studioReports.length;
+        state.fixedExpenses = mergeById(state.fixedExpenses, data.fixedExpenses || []);
+        state.expenses = mergeById(state.expenses, data.expenses || []);
+        const afterCounts = state.invoices.length + state.products.length + state.clients.length + state.stockEntries.length + state.studioReports.length + state.fixedExpenses.length + state.expenses.length;
         mergedInNewData = afterCounts !== beforeCounts;
       }
     }catch(e){ console.error('pre-push merge failed, pushing local state as-is', e); }
@@ -1342,7 +1499,7 @@ async function syncPush(){
       method:'POST',
       cache: 'no-store',
       headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // avoids a CORS preflight to Apps Script
-      body: JSON.stringify({ products: state.products, invoices: state.invoices, clients: state.clients, stockEntries: state.stockEntries, studioReports: state.studioReports })
+      body: JSON.stringify({ products: state.products, invoices: state.invoices, clients: state.clients, stockEntries: state.stockEntries, studioReports: state.studioReports, fixedExpenses: state.fixedExpenses, expenses: state.expenses, startingBalance: state.startingBalance })
     });
     if(mergedInNewData && isSafeToSync()) renderAll();
     return true;
@@ -1366,6 +1523,12 @@ async function backgroundSync(showStatus){
   if(showStatus) setTimeout(()=>{ if(syncUrl) updateSyncLabel('Kong Tattoo Care'); }, 2500);
   isSyncing = false;
 }
+
+const DEFAULT_FIXED_EXPENSES = [
+  { id: 'fx1', name: 'PRIMO Marketing Service', amount: 0 },
+  { id: 'fx2', name: 'Accountant Fee', amount: 0 },
+  { id: 'fx3', name: 'Tony - Petrol Fee', amount: 0 },
+];
 
 async function loadState(){
   // If sync is connected, pull the real shared data FIRST — this has to
@@ -1395,6 +1558,12 @@ async function loadState(){
   catch(e){ state.stockEntries = []; }
   try{ const r = await window.storage.get('kong-reports-2026', false); state.studioReports = r && r.value ? JSON.parse(r.value) : []; }
   catch(e){ state.studioReports = []; }
+  try{ const f = await window.storage.get('kong-fixedexpenses-2026', false); state.fixedExpenses = f && f.value ? JSON.parse(f.value) : DEFAULT_FIXED_EXPENSES.slice(); }
+  catch(e){ state.fixedExpenses = DEFAULT_FIXED_EXPENSES.slice(); }
+  try{ const ex = await window.storage.get('kong-expenses-2026', false); state.expenses = ex && ex.value ? JSON.parse(ex.value) : []; }
+  catch(e){ state.expenses = []; }
+  try{ const sb = await window.storage.get('kong-startingbalance-2026', false); state.startingBalance = sb && sb.value ? JSON.parse(sb.value) : 0; }
+  catch(e){ state.startingBalance = 0; }
   return false;
 }
 async function saveProducts(){
@@ -1415,6 +1584,18 @@ async function saveStockEntries(){
 }
 async function saveStudioReports(){
   try{ await window.storage.set('kong-reports-2026', JSON.stringify(state.studioReports), false); }catch(e){ console.error('save failed', e); }
+  syncPush();
+}
+async function saveFixedExpenses(){
+  try{ await window.storage.set('kong-fixedexpenses-2026', JSON.stringify(state.fixedExpenses), false); }catch(e){ console.error('save failed', e); }
+  syncPush();
+}
+async function saveExpenses(){
+  try{ await window.storage.set('kong-expenses-2026', JSON.stringify(state.expenses), false); }catch(e){ console.error('save failed', e); }
+  syncPush();
+}
+async function saveStartingBalance(){
+  try{ await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false); }catch(e){ console.error('save failed', e); }
   syncPush();
 }
 function clientByName(name){ return state.clients.find(c=>c.name===name); }
@@ -2039,6 +2220,248 @@ function renderStudioHealthSummary(){
   }).join('');
 }
 
+// ---------- expenses / cash overview ----------
+function fixedExpenseTotal(){
+  return state.fixedExpenses.reduce((s,e)=>s+(e.amount||0), 0);
+}
+function oneOffExpensesForMonth(mk){
+  return state.expenses.filter(e=>monthKey(e.date)===mk).reduce((s,e)=>s+(e.amount||0), 0);
+}
+function totalExpensesForMonth(mk){
+  return fixedExpenseTotal() + oneOffExpensesForMonth(mk);
+}
+function paidRevenueForMonth(mk){
+  return state.invoices.filter(inv=>inv.paid && monthKey(inv.date)===mk).reduce((s,inv)=>s+invoiceTotal(inv), 0);
+}
+function monthsBetweenInclusive(startKey, endKey){
+  const [sy,sm] = startKey.split('-').map(Number);
+  const [ey,em] = endKey.split('-').map(Number);
+  return (ey-sy)*12 + (em-sm) + 1;
+}
+function activeMonthRange(){
+  const invoiceMonths = state.invoices.map(inv=>monthKey(inv.date)).filter(Boolean);
+  const nowKey = todayISO().slice(0,7);
+  const all = [...invoiceMonths, nowKey].filter(Boolean).sort();
+  return { earliest: all[0], latest: all[all.length-1] };
+}
+function allTimePaidRevenue(){
+  return state.invoices.filter(inv=>inv.paid).reduce((s,inv)=>s+invoiceTotal(inv), 0);
+}
+function allTimeOneOffExpenseTotal(){
+  return state.expenses.reduce((s,e)=>s+(e.amount||0), 0);
+}
+function allTimeFixedExpenseTotal(){
+  const { earliest, latest } = activeMonthRange();
+  const n = monthsBetweenInclusive(earliest, latest);
+  return fixedExpenseTotal() * Math.max(1, n);
+}
+function cashInBank(){
+  return (state.startingBalance||0) + allTimePaidRevenue() - allTimeOneOffExpenseTotal() - allTimeFixedExpenseTotal();
+}
+
+function populateExpenseMonthSelect(){
+  const sel = document.getElementById('expenseMonthSelect');
+  const prev = sel.value;
+  const invoiceMonths = state.invoices.map(inv=>monthKey(inv.date)).filter(Boolean);
+  const expenseMonths = state.expenses.map(e=>monthKey(e.date)).filter(Boolean);
+  const nowKey = todayISO().slice(0,7);
+  const months = [...new Set([...invoiceMonths, ...expenseMonths, nowKey])].sort().reverse();
+  sel.innerHTML = months.map(mk=>`<option value="${mk}">${monthLabel(mk)}</option>`).join('');
+  if(prev && months.includes(prev)) sel.value = prev; else sel.value = nowKey;
+}
+
+function renderExpensesView(){
+  populateExpenseMonthSelect();
+  const mk = document.getElementById('expenseMonthSelect').value || todayISO().slice(0,7);
+
+  document.getElementById('exCash').textContent = fmtTHB(cashInBank());
+  const revenue = paidRevenueForMonth(mk);
+  const expenses = totalExpensesForMonth(mk);
+  document.getElementById('exRevenue').textContent = fmtTHB(revenue);
+  document.getElementById('exRevenueSub').textContent = monthLabel(mk);
+  document.getElementById('exExpenses').textContent = fmtTHB(expenses);
+  document.getElementById('exExpensesSub').textContent = monthLabel(mk);
+  const profit = revenue - expenses;
+  const profitEl = document.getElementById('exProfit');
+  profitEl.textContent = fmtTHB(profit);
+  const profitCard = document.getElementById('exProfitCard');
+  profitCard.classList.remove('mint','coral');
+  profitCard.classList.add(profit>=0 ? 'mint' : 'coral');
+
+  // breakeven
+  const target = fixedExpenseTotal();
+  document.getElementById('beTarget').textContent = fmtTHB(target);
+  const pct = target>0 ? Math.round((revenue/target)*100) : 0;
+  document.getElementById('beProgressFill').style.width = Math.min(100, pct) + '%';
+  document.getElementById('beProgressText').textContent = target>0
+    ? `${monthLabel(mk)}: ${fmtTHB(revenue)} collected of ${fmtTHB(target)} needed (${pct}%)${revenue>=target ? ' — break-even reached' : ''}`
+    : 'Add your fixed expenses below to see a break-even target.';
+
+  // fixed expenses table
+  const fxRows = document.getElementById('fixedExpenseRows');
+  if(state.fixedExpenses.length===0){
+    fxRows.innerHTML = `<tr><td colspan="3" style="text-align:center;color:var(--text-3);padding:20px;">${t('emptyNoFixed')}</td></tr>`;
+  } else {
+    fxRows.innerHTML = state.fixedExpenses.map(e=>`
+      <tr>
+        <td>${escapeHtml(e.name)}</td>
+        <td class="r num">${fmtTHB(e.amount||0)}</td>
+        <td>
+          <div class="icon-btn edit-fixed" data-id="${e.id}" title="Edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+          </div>
+        </td>
+      </tr>`).join('');
+    fxRows.querySelectorAll('.edit-fixed').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const e = state.fixedExpenses.find(x=>x.id===el.dataset.id);
+        if(e) openExpenseModal(e, true);
+      });
+    });
+  }
+
+  // one-off expenses table
+  const exRows = document.getElementById('expenseRows');
+  const exEmpty = document.getElementById('expenseEmpty');
+  const sortedExpenses = state.expenses.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  if(sortedExpenses.length===0){
+    exRows.innerHTML = '';
+    exEmpty.style.display = 'block';
+  } else {
+    exEmpty.style.display = 'none';
+    exRows.innerHTML = sortedExpenses.map(e=>`
+      <tr>
+        <td>${escapeHtml(e.name)}</td>
+        <td class="r num">${fmtTHB(e.amount||0)}</td>
+        <td>${fmtDate(e.date)}</td>
+        <td style="color:var(--text-2);">${escapeHtml(e.note||'—')}</td>
+        <td>
+          <div class="icon-btn edit-expense" data-id="${e.id}" title="Edit">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
+          </div>
+        </td>
+      </tr>`).join('');
+    exRows.querySelectorAll('.edit-expense').forEach(el=>{
+      el.addEventListener('click', ()=>{
+        const e = state.expenses.find(x=>x.id===el.dataset.id);
+        if(e) openExpenseModal(e, false);
+      });
+    });
+  }
+
+  document.getElementById('startingBalanceInput').value = state.startingBalance || 0;
+
+  // cash flow chart — last 6 months
+  const { latest } = activeMonthRange();
+  const [ly, lm] = latest.split('-').map(Number);
+  const months = [];
+  let y=ly, m=lm;
+  for(let i=0;i<6;i++){
+    months.unshift(`${y}-${String(m).padStart(2,'0')}`);
+    m--; if(m===0){ m=12; y--; }
+  }
+  const points = months.map(mkk=>({
+    label: monthLabel(mkk).split(' ')[0].slice(0,3)+' '+monthLabel(mkk).split(' ')[1].slice(2),
+    value: paidRevenueForMonth(mkk) - totalExpensesForMonth(mkk)
+  }));
+  buildCashFlowChart('cashFlowChart', points);
+}
+
+function buildCashFlowChart(containerId, points){
+  const W = 640, H = 220, padTop = 16, padBottom = 30, padLeft = 50, padRight = 16;
+  const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+  const maxAbs = Math.max(1, ...points.map(p=>Math.abs(p.value)));
+  const zeroY = padTop + plotH/2;
+  const barW = plotW / points.length * 0.55;
+  let bars = '', labels = '';
+  points.forEach((p,i)=>{
+    const cx = padLeft + (plotW/points.length)*(i+0.5);
+    const barH = (Math.abs(p.value)/maxAbs) * (plotH/2 - 6);
+    const y = p.value>=0 ? zeroY - barH : zeroY;
+    const color = p.value>=0 ? CLR_MINT : CLR_CORAL;
+    bars += svgEl('rect', { x:(cx-barW/2).toFixed(1), y:y.toFixed(1), width:barW.toFixed(1), height:barH.toFixed(1), rx:4, fill:color, 'fill-opacity':0.85 });
+    labels += `<text x="${cx.toFixed(1)}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="#7c9282" font-family="Inter">${p.label}</text>`;
+  });
+  document.getElementById(containerId).innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible;" preserveAspectRatio="xMidYMid meet">
+      <line x1="${padLeft}" y1="${zeroY}" x2="${W-padRight}" y2="${zeroY}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+      ${bars}
+      ${labels}
+    </svg>`;
+}
+
+document.getElementById('expenseMonthSelect').addEventListener('change', renderExpensesView);
+document.getElementById('startingBalanceInput').addEventListener('change', async (e)=>{
+  state.startingBalance = parseFloat(e.target.value) || 0;
+  await saveStartingBalance();
+  renderExpensesView();
+});
+
+// ---------- expense modal (fixed + one-off) ----------
+const expenseModal = document.getElementById('expenseModalOverlay');
+let editingExpenseId = null;
+let editingExpenseIsFixed = false;
+function openExpenseModal(expense, isFixed){
+  editingExpenseId = expense ? expense.id : null;
+  editingExpenseIsFixed = isFixed;
+  document.getElementById('expenseModalTitle').textContent = isFixed
+    ? (expense ? 'Edit fixed expense' : 'Add fixed expense')
+    : (expense ? 'Edit expense' : 'Log expense');
+  document.getElementById('efName').value = expense ? expense.name : '';
+  document.getElementById('efAmount').value = expense ? (expense.amount||0) : '';
+  document.getElementById('efDateWrap').style.display = isFixed ? 'none' : 'block';
+  document.getElementById('efNoteWrap').style.display = isFixed ? 'none' : 'block';
+  document.getElementById('efDate').value = expense ? expense.date : todayISO();
+  document.getElementById('efNote').value = expense ? (expense.note||'') : '';
+  document.getElementById('efDelete').style.display = expense ? 'flex' : 'none';
+  expenseModal.classList.add('show');
+}
+document.getElementById('addFixedExpenseBtn').addEventListener('click', ()=> openExpenseModal(null, true));
+document.getElementById('addExpenseBtn').addEventListener('click', ()=> openExpenseModal(null, false));
+document.getElementById('efCancel').addEventListener('click', ()=> expenseModal.classList.remove('show'));
+expenseModal.addEventListener('click', (e)=>{ if(e.target===expenseModal) expenseModal.classList.remove('show'); });
+document.getElementById('efSave').addEventListener('click', async ()=>{
+  const name = document.getElementById('efName').value.trim();
+  const amount = parseFloat(document.getElementById('efAmount').value) || 0;
+  if(!name) return;
+  if(editingExpenseIsFixed){
+    if(editingExpenseId){
+      const e = state.fixedExpenses.find(x=>x.id===editingExpenseId);
+      e.name = name; e.amount = amount;
+    } else {
+      state.fixedExpenses.push({ id: uid('fx'), name, amount });
+    }
+    expenseModal.classList.remove('show');
+    await saveFixedExpenses();
+  } else {
+    const date = document.getElementById('efDate').value || todayISO();
+    const note = document.getElementById('efNote').value.trim();
+    if(editingExpenseId){
+      const e = state.expenses.find(x=>x.id===editingExpenseId);
+      e.name = name; e.amount = amount; e.date = date; e.note = note;
+    } else {
+      state.expenses.push({ id: uid('ex'), name, amount, date, note });
+    }
+    expenseModal.classList.remove('show');
+    await saveExpenses();
+  }
+  renderAll();
+});
+document.getElementById('efDelete').addEventListener('click', async ()=>{
+  if(!editingExpenseId) return;
+  if(!confirm('Delete this expense?')) return;
+  if(editingExpenseIsFixed){
+    state.fixedExpenses = state.fixedExpenses.filter(x=>x.id!==editingExpenseId);
+    expenseModal.classList.remove('show');
+    await saveFixedExpenses();
+  } else {
+    state.expenses = state.expenses.filter(x=>x.id!==editingExpenseId);
+    expenseModal.classList.remove('show');
+    await saveExpenses();
+  }
+  renderAll();
+});
+
 function renderOverview(){
   renderCoachInsights();
   renderHotProducts();
@@ -2453,6 +2876,7 @@ function renderAll(){
   renderInvoicesView();
   renderMonthlyView();
   renderStockView();
+  renderExpensesView();
   populateGenClientSelect();
 }
 
