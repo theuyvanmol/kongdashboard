@@ -279,7 +279,25 @@
   .invoice-paper{
     width:100%; max-width:680px; background:#ffffff; color:#12141c;
     border-radius:14px; padding:40px 42px; box-shadow:0 20px 60px rgba(0,0,0,0.5);
-    font-family:'Inter',sans-serif;
+    font-family:'Inter',sans-serif; position:relative; overflow:hidden;
+  }
+  .ip-stamp{
+    position:absolute; top:38px; right:38px; z-index:5; pointer-events:none;
+    width:132px; height:132px; border-radius:50%;
+    border:5px solid #1a9e5c; display:flex; align-items:center; justify-content:center;
+    transform:rotate(-16deg); opacity:0.88; mix-blend-mode:multiply;
+  }
+  .ip-stamp::before{
+    content:''; position:absolute; inset:8px; border-radius:50%; border:1.5px solid #1a9e5c;
+  }
+  .ip-stamp-text{
+    font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:22px; letter-spacing:0.06em;
+    color:#1a9e5c; text-align:center; line-height:1.15;
+  }
+  .ip-stamp-sub{ font-size:8px; letter-spacing:0.18em; font-weight:700; color:#1a9e5c; margin-top:2px; }
+  @media (max-width:480px){
+    .ip-stamp{ width:104px; height:104px; top:24px; right:24px; }
+    .ip-stamp-text{ font-size:17px; }
   }
   .ip-head{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:10px; }
   .ip-brand{ font-size:19px; font-weight:800; font-family:'Space Grotesk',sans-serif; letter-spacing:-0.02em; }
@@ -2239,10 +2257,17 @@ function renderGenPreview(){
 
   wrap.innerHTML = `
     <div class="invoice-paper" id="genPrintArea">
+      ${inv.paid ? `
+      <div class="ip-stamp">
+        <div>
+          <div class="ip-stamp-text">PAID</div>
+          <div class="ip-stamp-sub">${fmtDate(inv.date)}</div>
+        </div>
+      </div>` : ''}
       <div class="ip-head">
         <div class="ip-brand">KONG<span>·</span>Tattoo Care</div>
         <div class="ip-doctitle">
-          Invoice
+          ${inv.paid ? 'Receipt' : 'Invoice'}
           <div class="ip-status ${inv.paid?'paid':'pending'}">${inv.paid?'Paid':'Pending'}</div>
         </div>
       </div>
@@ -2257,7 +2282,7 @@ function renderGenPreview(){
           ${addressLine}
         </div>
         <div class="ip-meta">
-          <div class="ip-meta-line"><span>Invoice No.</span><b>${escapeHtml(inv.invoiceNo||'—')}</b></div>
+          <div class="ip-meta-line"><span>${inv.paid ? 'Receipt No.' : 'Invoice No.'}</span><b>${escapeHtml(inv.invoiceNo||'—')}</b></div>
           <div class="ip-meta-line"><span>Date</span><b>${fmtDate(inv.date)}</b></div>
         </div>
       </div>
