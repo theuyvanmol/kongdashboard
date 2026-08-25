@@ -140,14 +140,7 @@
   .hot-change.up{ color:var(--mint); }
   .hot-change.down{ color:var(--coral); }
   .cc-empty{ font-size:12.5px; color:var(--text-3); }
-  .breakeven-row{ display:flex; align-items:center; gap:28px; flex-wrap:wrap; }
-  .be-stat{ flex-shrink:0; }
-  .be-num{ font-size:24px; font-weight:800; font-family:'JetBrains Mono',monospace; color:var(--text-1); }
-  .be-lbl{ font-size:11.5px; color:var(--text-3); max-width:220px; margin-top:4px; line-height:1.4; }
-  .be-progress-wrap{ flex:1; min-width:200px; }
-  .be-progress-track{ width:100%; height:12px; border-radius:8px; background:rgba(255,255,255,0.08); overflow:hidden; }
-  .be-progress-fill{ height:100%; border-radius:8px; background:linear-gradient(90deg, var(--coral), var(--amber), var(--mint)); transition:width .4s ease; }
-  .be-progress-text{ font-size:12px; color:var(--text-2); margin-top:8px; }
+  .be-progress-text{ font-size:12px; color:var(--text-2); margin-top:10px; text-align:center; }
   .health-summary{ display:flex; gap:10px; flex-wrap:wrap; }
   .health-pill{ display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); cursor:default; }
   .health-pill .hp-dot{ width:8px; height:8px; border-radius:50%; }
@@ -183,6 +176,7 @@
 
   /* ---------- invoice table (desktop) + cards (mobile) ---------- */
   .invoice-table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .expense-table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; } /* deliberately never hidden on mobile — no card fallback needed, these tables are narrow enough to scroll */
 
   .stock-studio-picker{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
   .stand-badge{ font-size:10.5px; font-weight:700; padding:5px 12px; border-radius:20px; white-space:nowrap; }
@@ -500,6 +494,16 @@
     .grain{ display: none; }
     .tab.active::after{ animation: none !important; display:none; }
     .command-centre, .glass{ will-change:auto; }
+    /* Every .btn and .icon-btn carried its own backdrop-filter blur, and
+       there can be dozens on screen at once (every table row's edit icon,
+       every modal button) — this was the actual biggest missed cost on
+       mobile, separate from the .glass cards fixed earlier. */
+    .btn, .icon-btn, .overlay, .status-pill, .tab, .month-pill{
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      transition: none !important;
+    }
+    .btn:hover{ transform: none !important; }
     *{ scroll-behavior: auto !important; }
   }
 </style>
@@ -916,17 +920,10 @@
       <div class="cc-header">
         <span class="cc-icon">⚖️</span>
         <h3 data-i18n="hdrBreakeven">Break-even point</h3>
+        <span style="font-size:10.5px; color:var(--text-3); margin-left:auto;" id="beTargetLabel">Target: ฿0/month</span>
       </div>
-      <div class="breakeven-row">
-        <div class="be-stat">
-          <div class="be-num" id="beTarget">฿0</div>
-          <div class="be-lbl" data-i18n="lblBeTarget">Revenue needed each month to cover fixed costs</div>
-        </div>
-        <div class="be-progress-wrap">
-          <div class="be-progress-track"><div class="be-progress-fill" id="beProgressFill"></div></div>
-          <div class="be-progress-text" id="beProgressText">—</div>
-        </div>
-      </div>
+      <div id="breakevenChart"></div>
+      <div class="be-progress-text" id="beProgressText">—</div>
     </div>
 
     <div class="section-head">
@@ -934,7 +931,7 @@
       <button class="btn primary small" id="addFixedExpenseBtn" data-i18n="btnAddFixed">+ Add fixed expense</button>
     </div>
     <div class="glass" style="padding:8px 6px; margin-bottom:20px;">
-      <div class="invoice-table-wrap">
+      <div class="expense-table-wrap">
         <table class="invoice-table">
           <thead><tr><th data-i18n="colName">Name</th><th class="r" data-i18n="colAmountPerMonth">Amount / month</th><th></th></tr></thead>
           <tbody id="fixedExpenseRows"></tbody>
@@ -947,7 +944,7 @@
       <button class="btn primary small" id="addExpenseBtn" data-i18n="btnAddExpense">+ Log an expense</button>
     </div>
     <div class="glass" style="padding:8px 6px; margin-bottom:20px;">
-      <div class="invoice-table-wrap">
+      <div class="expense-table-wrap">
         <table class="invoice-table">
           <thead><tr><th data-i18n="colName">Name</th><th class="r" data-i18n="colAmount">Amount</th><th data-i18n="colDate">Date</th><th data-i18n="colNote">Note</th><th></th></tr></thead>
           <tbody id="expenseRows"></tbody>
@@ -1506,10 +1503,14 @@ async function syncPush(){
   }catch(e){ console.error('sync push failed', e); return false; }
 }
 
+let lastScrollTime = 0;
+window.addEventListener('scroll', ()=>{ lastScrollTime = Date.now(); }, { passive: true, capture: true });
+
 function isSafeToSync(){
   if(document.querySelector('.overlay.show')) return false;
   const active = document.activeElement;
   if(active && (active.tagName==='INPUT' || active.tagName==='SELECT' || active.tagName==='TEXTAREA')) return false;
+  if(Date.now() - lastScrollTime < 1500) return false; // avoid a full re-render hitting mid-scroll, which looks like a glitch
   return true;
 }
 
@@ -2288,14 +2289,10 @@ function renderExpensesView(){
   profitCard.classList.remove('mint','coral');
   profitCard.classList.add(profit>=0 ? 'mint' : 'coral');
 
-  // breakeven
+  // breakeven — cumulative revenue through the month vs the flat target line
   const target = fixedExpenseTotal();
-  document.getElementById('beTarget').textContent = fmtTHB(target);
-  const pct = target>0 ? Math.round((revenue/target)*100) : 0;
-  document.getElementById('beProgressFill').style.width = Math.min(100, pct) + '%';
-  document.getElementById('beProgressText').textContent = target>0
-    ? `${monthLabel(mk)}: ${fmtTHB(revenue)} collected of ${fmtTHB(target)} needed (${pct}%)${revenue>=target ? ' — break-even reached' : ''}`
-    : 'Add your fixed expenses below to see a break-even target.';
+  document.getElementById('beTargetLabel').textContent = `Target: ${fmtTHB(target)}/month`;
+  renderBreakevenChart(mk, target, revenue);
 
   // fixed expenses table
   const fxRows = document.getElementById('fixedExpenseRows');
@@ -2389,6 +2386,80 @@ function buildCashFlowChart(containerId, points){
       ${labels}
     </svg>`;
 }
+
+function daysInMonth(mk){
+  const [y,m] = mk.split('-').map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+function renderBreakevenChart(mk, target, monthTotalRevenue){
+  const container = document.getElementById('breakevenChart');
+  const textEl = document.getElementById('beProgressText');
+
+  if(target<=0){
+    container.innerHTML = `<div class="cc-empty" style="padding:20px 4px;">Add your fixed expenses below to see a break-even target.</div>`;
+    textEl.textContent = '';
+    return;
+  }
+
+  const nDays = daysInMonth(mk);
+  // build a day-by-day cumulative total of paid revenue through the month
+  const dailyPaid = {};
+  state.invoices.filter(inv=>inv.paid && monthKey(inv.date)===mk).forEach(inv=>{
+    const day = parseInt(inv.date.split('-')[2], 10);
+    dailyPaid[day] = (dailyPaid[day]||0) + invoiceTotal(inv);
+  });
+  let running = 0;
+  const cumulative = [];
+  for(let d=1; d<=nDays; d++){
+    running += (dailyPaid[d]||0);
+    cumulative.push(running);
+  }
+
+  const W = 640, H = 240, padTop = 16, padBottom = 26, padLeft = 56, padRight = 16;
+  const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+  const maxVal = Math.max(target, running) * 1.12;
+  const xForDay = d => padLeft + (plotW/(nDays-1)) * (d-1);
+  const yForVal = v => padTop + plotH - (v/maxVal)*plotH;
+
+  const linePath = cumulative.map((v,i)=> (i===0?'M':'L') + xForDay(i+1).toFixed(1) + ' ' + yForVal(v).toFixed(1)).join(' ');
+  const areaPath = linePath + ` L ${xForDay(nDays).toFixed(1)} ${(padTop+plotH).toFixed(1)} L ${xForDay(1).toFixed(1)} ${(padTop+plotH).toFixed(1)} Z`;
+  const targetY = yForVal(target);
+
+  // grid + axis labels
+  let grid = '';
+  for(let g=0; g<=3; g++){
+    const gv = (maxVal/3)*g;
+    const gy = padTop + plotH - (gv/maxVal)*plotH;
+    grid += `<line x1="${padLeft}" y1="${gy.toFixed(1)}" x2="${W-padRight}" y2="${gy.toFixed(1)}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+    grid += `<text x="${padLeft-8}" y="${(gy+3).toFixed(1)}" text-anchor="end" font-size="9.5" fill="#7c9282" font-family="JetBrains Mono">${gv>=1000?Math.round(gv/1000)+'k':Math.round(gv)}</text>`;
+  }
+  const dayTicks = [1, Math.round(nDays/2), nDays];
+  const dayLabels = dayTicks.map(d=> `<text x="${xForDay(d).toFixed(1)}" y="${H-6}" text-anchor="middle" font-size="9.5" fill="#7c9282" font-family="Inter">Day ${d}</text>`).join('');
+
+  // find the day the cumulative line actually crosses the target, if it does
+  let crossDay = null;
+  for(let i=0;i<cumulative.length;i++){ if(cumulative[i]>=target){ crossDay=i+1; break; } }
+
+  container.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;overflow:visible;" preserveAspectRatio="xMidYMid meet">
+      ${grid}
+      <line x1="${padLeft}" y1="${targetY.toFixed(1)}" x2="${W-padRight}" y2="${targetY.toFixed(1)}" stroke="${CLR_CORAL}" stroke-width="1.5" stroke-dasharray="5,4"/>
+      <text x="${W-padRight}" y="${(targetY-6).toFixed(1)}" text-anchor="end" font-size="10" fill="${CLR_CORAL}" font-family="Inter" font-weight="600">Break-even: ${fmtTHB(target)}</text>
+      <path d="${areaPath}" fill="${CLR_MINT}" fill-opacity="0.10" stroke="none"/>
+      <path d="${linePath}" fill="none" stroke="${CLR_MINT}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+      ${crossDay ? `<circle cx="${xForDay(crossDay).toFixed(1)}" cy="${yForVal(target).toFixed(1)}" r="4.5" fill="${CLR_MINT}"/>` : ''}
+      ${dayLabels}
+    </svg>`;
+
+  if(crossDay){
+    textEl.textContent = `Break-even reached on day ${crossDay} of ${monthLabel(mk)} — everything collected after that is profit.`;
+  } else {
+    const remaining = target - running;
+    textEl.textContent = `${fmtTHB(remaining)} more needed to break even in ${monthLabel(mk)} (${fmtTHB(running)} collected of ${fmtTHB(target)} target so far).`;
+  }
+}
+
 
 document.getElementById('expenseMonthSelect').addEventListener('change', renderExpensesView);
 document.getElementById('startingBalanceInput').addEventListener('change', async (e)=>{
