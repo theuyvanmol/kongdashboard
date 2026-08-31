@@ -86,6 +86,8 @@
   }
   .btn:hover{ background:rgba(255,255,255,0.14); border-color:var(--glass-border-hi); transform:translateY(-1px); }
   .btn.primary{ background:linear-gradient(135deg, var(--violet), var(--aurora-teal)); color:#04101a; border:none; box-shadow:0 6px 20px rgba(124,92,255,0.35); }
+  .btn.primary.report-btn{ background:linear-gradient(135deg, var(--amber), var(--coral)); color:#2a0e08; box-shadow:0 6px 20px rgba(255,132,120,0.35); }
+  .btn.primary.report-btn:hover{ filter:brightness(1.06); }
   .btn.primary:hover{ filter:brightness(1.08); }
   .btn.ghost{ background:transparent; }
   .btn svg{ width:14px; height:14px; flex-shrink:0; }
@@ -142,6 +144,11 @@
   .cc-empty{ font-size:12.5px; color:var(--text-3); }
   .be-progress-text{ font-size:12px; color:var(--text-2); margin-top:10px; text-align:center; }
   .health-summary{ display:flex; gap:10px; flex-wrap:wrap; }
+  .tier-leaderboard{ display:flex; flex-direction:column; gap:8px; }
+  .tier-row{ display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.03); }
+  .tier-row .tr-rank{ width:20px; font-size:11px; color:var(--text-3); font-weight:700; flex-shrink:0; }
+  .tier-row .tr-name{ flex:1; font-size:13px; font-weight:600; color:var(--text-1); min-width:0; }
+  .tier-row .tr-revenue{ font-size:12px; font-family:'JetBrains Mono',monospace; color:var(--text-2); flex-shrink:0; }
   .health-pill{ display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:12px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); cursor:default; }
   .health-pill .hp-dot{ width:8px; height:8px; border-radius:50%; }
   .health-pill .hp-count{ font-size:15px; font-weight:800; font-family:'JetBrains Mono',monospace; }
@@ -410,6 +417,29 @@
   .sp-chart-card{ flex:1; min-width:280px; border:1px solid #e8e9ee; border-radius:12px; padding:16px 18px; }
   .sp-chart-title{ font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:#9a9fac; font-weight:700; margin-bottom:12px; }
   .sp-footer{ text-align:center; font-size:10px; color:#9a9fac; margin-top:24px; }
+  .ar-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .ar-table th{ text-align:left; padding:8px 10px; border-bottom:2px solid #12141c; font-size:10px; text-transform:uppercase; letter-spacing:0.05em; color:#6b7080; }
+  .ar-table td{ padding:8px 10px; border-bottom:1px solid #e8e9ee; color:#12141c; }
+  .ar-table th.r, .ar-table td.r{ text-align:right; font-family:'JetBrains Mono',monospace; }
+  .ar-table tfoot td{ font-weight:800; border-top:2px solid #12141c; border-bottom:none; }
+
+  /* ---------- month-end report reminder toast ---------- */
+  .report-toast{
+    position:fixed; bottom:22px; right:22px; z-index:200; max-width:340px;
+    display:flex; gap:12px; align-items:flex-start; padding:16px;
+    background:rgba(13,22,16,0.97); border:1px solid var(--glass-border-hi); border-radius:16px;
+    box-shadow:0 16px 50px rgba(0,0,0,0.5);
+    animation: toastIn .4s cubic-bezier(.2,.9,.3,1.3);
+  }
+  @keyframes toastIn{ from{ opacity:0; transform:translateY(16px) scale(0.96); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  .rt-icon{ font-size:22px; flex-shrink:0; }
+  .rt-body{ flex:1; min-width:0; }
+  .rt-title{ font-size:13px; font-weight:700; color:var(--text-1); margin-bottom:4px; font-family:'Space Grotesk',sans-serif; }
+  .rt-text{ font-size:12px; color:var(--text-2); line-height:1.5; margin-bottom:12px; }
+  .rt-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .rt-close{ background:none; border:none; color:var(--text-3); font-size:18px; line-height:1; cursor:pointer; flex-shrink:0; padding:2px; }
+  .rt-close:hover{ color:var(--text-1); }
+  @media (max-width:480px){ .report-toast{ left:14px; right:14px; bottom:14px; max-width:none; } }
 
   @media (max-width:900px){
     .kpis{ grid-template-columns:repeat(2,1fr); }
@@ -427,6 +457,8 @@
     .brand h1{ font-size:15px; }
     .field-row{ flex-direction:column; }
     .field-row .field{ min-width:0; }
+    .report-btn .rb-full{ display:none; }
+    .report-btn .rb-short{ display:inline !important; }
   }
   /* ---------- Splash screen ---------- */
   #splashScreen{
@@ -584,6 +616,11 @@
       <button class="btn ghost" id="manageClientsBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
         <span data-i18n="btnLocations">Locations</span>
+      </button>
+      <button class="btn primary report-btn" id="headerReportBtn" title="Download Revenue & Expense Report">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span class="rb-full" data-i18n="btnAccountingReport">Revenue &amp; Expense Report</span>
+        <span class="rb-short" data-i18n="btnAccountingReportShort" style="display:none;">Report</span>
       </button>
       <button class="btn primary" id="addInvoiceBtn">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -1092,6 +1129,20 @@
   </div>
 </div>
 
+<!-- Month-end report reminder toast -->
+<div id="reportReminderToast" class="report-toast" style="display:none;">
+  <div class="rt-icon">📊</div>
+  <div class="rt-body">
+    <div class="rt-title" id="rtTitle">Month-end is coming up</div>
+    <div class="rt-text" id="rtText">Don't forget to generate your Revenue &amp; Expense report for this month.</div>
+    <div class="rt-actions">
+      <button class="btn primary small" id="rtDownloadBtn">Download PDF now</button>
+      <button class="btn ghost small" id="rtLaterBtn">Remind me later</button>
+    </div>
+  </div>
+  <button class="rt-close" id="rtCloseBtn" title="Dismiss">×</button>
+</div>
+
 <!-- PDF summary print area (hidden on screen, shown only when printing) -->
 <div id="summaryPrintArea" class="summary-paper" style="display:none;">
   <div class="sp-head">
@@ -1128,6 +1179,41 @@
   </div>
 
   <div class="sp-footer">KONG Tattoo Care Co., Ltd. · Generated from the Sales Invoice Dashboard</div>
+</div>
+
+<div id="accountingReportArea" class="summary-paper" style="display:none;">
+  <div class="sp-head">
+    <div class="sp-brand">KONG<span>·</span>Tattoo Care</div>
+    <div class="sp-doctitle">
+      <div class="sp-title">Revenue &amp; Expense Report</div>
+      <div class="sp-period" id="arPeriod">—</div>
+    </div>
+  </div>
+
+  <div class="sp-kpis" style="grid-template-columns:repeat(3,1fr);">
+    <div class="sp-kpi"><div class="sp-kpi-lbl">Total revenue collected</div><div class="sp-kpi-val sp-mint" id="arTotalRevenue">฿0</div></div>
+    <div class="sp-kpi"><div class="sp-kpi-lbl">Total expenses</div><div class="sp-kpi-val sp-coral" id="arTotalExpenses">฿0</div></div>
+    <div class="sp-kpi"><div class="sp-kpi-lbl">Net profit / loss</div><div class="sp-kpi-val" id="arNetProfit">฿0</div></div>
+  </div>
+
+  <div class="sp-chart-card" style="margin-bottom:16px;">
+    <div class="sp-chart-title">Revenue vs expenses by month</div>
+    <div id="arBarChart"></div>
+  </div>
+  <div class="sp-chart-card" style="margin-bottom:16px;">
+    <div class="sp-chart-title">Net profit trend</div>
+    <div id="arLineChart"></div>
+  </div>
+
+  <table class="ar-table">
+    <thead>
+      <tr><th>Month</th><th class="r">Revenue</th><th class="r">Expenses</th><th class="r">Net profit / loss</th></tr>
+    </thead>
+    <tbody id="arTableBody"></tbody>
+    <tfoot><tr id="arTableTotals"></tr></tfoot>
+  </table>
+
+  <div class="sp-footer">KONG Tattoo Care Co., Ltd. · Generated from the Sales Invoice Dashboard · <span id="arGeneratedDate"></span></div>
 </div>
 
 <!-- Add/edit expense modal -->
@@ -1262,6 +1348,7 @@ const TRANSLATIONS = {
     hdrCashTrend: 'Cash flow trend', lblStartingBalance: "Starting bank balance (before this dashboard's records began)",
     btnCancel: 'Cancel', btnDelete: 'Delete', btnSave: 'Save',
     colClient: 'Client', colInvoiceNo: 'Invoice #', colTotal: 'Total', colStatus: 'Status', colStudio: 'Studio', colProduct: 'Product', colQty: 'Qty',
+    btnAccountingReport: 'Revenue & Expense Report', btnAccountingReportShort: 'Report',
   },
   th: {
     pageTitle: 'ใบแจ้งหนี้ขาย',
@@ -1292,6 +1379,7 @@ const TRANSLATIONS = {
     hdrCashTrend: 'แนวโน้มกระแสเงินสด', lblStartingBalance: 'ยอดเงินในธนาคารเริ่มต้น (ก่อนที่แดชบอร์ดนี้จะเริ่มบันทึก)',
     btnCancel: 'ยกเลิก', btnDelete: 'ลบ', btnSave: 'บันทึก',
     colClient: 'ลูกค้า', colInvoiceNo: 'เลขที่ใบแจ้งหนี้', colTotal: 'ยอดรวม', colStatus: 'สถานะ', colStudio: 'ร้านค้า', colProduct: 'สินค้า', colQty: 'จำนวน',
+    btnAccountingReport: 'รายงานรายได้และค่าใช้จ่าย', btnAccountingReportShort: 'รายงาน',
   }
 };
 let currentLang = localStorage.getItem('kong-lang') || 'en';
@@ -1312,6 +1400,32 @@ function setLanguage(lang){
 document.getElementById('langToggleBtn').addEventListener('click', ()=>{
   setLanguage(currentLang === 'en' ? 'th' : 'en');
 });
+
+// ---------- studio reward tiers (based on total sales for the selected month) ----------
+const REWARD_TIERS = [
+  { key:'diamond',  name:'Diamond',  color:'#7fd9ff' },
+  { key:'platinum', name:'Platinum', color:'#a3c9e0' },
+  { key:'gold',     name:'Gold',     color:'#ffcf70' },
+  { key:'silver',   name:'Silver',   color:'#c7ccd4' },
+  { key:'bronze',   name:'Bronze',   color:'#c17a4a' },
+]; // checked in this order (highest first) against state.rewardThresholds
+const DEFAULT_REWARD_THRESHOLDS = { silver:1000, gold:2500, platinum:3500, diamond:5000 };
+
+function computeStudioTier(client, mk){
+  const revenue = state.invoices.filter(inv=>inv.client===client && monthKey(inv.date)===mk)
+    .reduce((s,inv)=>s+invoiceTotal(inv), 0);
+  const th = state.rewardThresholds || DEFAULT_REWARD_THRESHOLDS;
+  let tier = REWARD_TIERS[4]; // bronze — default tier for everyone
+  if(revenue >= (th.diamond||Infinity)) tier = REWARD_TIERS[0];
+  else if(revenue >= (th.platinum||Infinity)) tier = REWARD_TIERS[1];
+  else if(revenue >= (th.gold||Infinity)) tier = REWARD_TIERS[2];
+  else if(revenue >= (th.silver||Infinity)) tier = REWARD_TIERS[3];
+  return { ...tier, revenue };
+}
+function tierBadgeHtml(client, mk){
+  const t = computeStudioTier(client, mk);
+  return `<span class="stand-badge" style="background:${t.color}22; color:${t.color}; border:1px solid ${t.color}55;">🏆 ${t.name}</span>`;
+}
 
 const STAND_SIZES = {
   king:   { label: 'King Kong — Big',        color: '#ff8478' },
@@ -1407,7 +1521,7 @@ function seedInvoices(){
   ];
 }
 
-let state = { products: [], invoices: [], clients: [], stockEntries: [], studioReports: [], fixedExpenses: [], expenses: [], startingBalance: 0 };
+let state = { products: [], invoices: [], clients: [], stockEntries: [], studioReports: [], fixedExpenses: [], expenses: [], startingBalance: 0, rewardThresholds: null };
 const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwupcEW_Lnni-zHT5DLTziGXkZpSKID4EYWyApiT8F6zy7vAvfWdTir5SWdJOjYkAUZ/exec';
 const OLD_BROKEN_URL = 'https://script.google.com/macros/s/AKfycbw2kNXQToeLzzi3XA1D7k-V_W9C0wwk8F8E5-cKZURpHYd3I3Pyg1fqadsWwOKP9Ao/exec';
 let savedSyncUrl = localStorage.getItem('kong-sync-url');
@@ -1438,6 +1552,7 @@ async function syncPull(){
       state.fixedExpenses = data.fixedExpenses || [];
       state.expenses = data.expenses || [];
       state.startingBalance = data.startingBalance || 0;
+      state.rewardThresholds = data.rewardThresholds || null;
       await window.storage.set('kong-products-2026', JSON.stringify(state.products), false);
       await window.storage.set('kong-invoices-2026', JSON.stringify(state.invoices), false);
       await window.storage.set('kong-clients-2026', JSON.stringify(state.clients), false);
@@ -1446,6 +1561,7 @@ async function syncPull(){
       await window.storage.set('kong-fixedexpenses-2026', JSON.stringify(state.fixedExpenses), false);
       await window.storage.set('kong-expenses-2026', JSON.stringify(state.expenses), false);
       await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false);
+      await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false);
       return true;
     }
   }catch(e){ console.error('sync pull failed', e); }
@@ -1496,7 +1612,7 @@ async function syncPush(){
       method:'POST',
       cache: 'no-store',
       headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // avoids a CORS preflight to Apps Script
-      body: JSON.stringify({ products: state.products, invoices: state.invoices, clients: state.clients, stockEntries: state.stockEntries, studioReports: state.studioReports, fixedExpenses: state.fixedExpenses, expenses: state.expenses, startingBalance: state.startingBalance })
+      body: JSON.stringify({ products: state.products, invoices: state.invoices, clients: state.clients, stockEntries: state.stockEntries, studioReports: state.studioReports, fixedExpenses: state.fixedExpenses, expenses: state.expenses, startingBalance: state.startingBalance, rewardThresholds: state.rewardThresholds })
     });
     if(mergedInNewData && isSafeToSync()) renderAll();
     return true;
@@ -1565,6 +1681,8 @@ async function loadState(){
   catch(e){ state.expenses = []; }
   try{ const sb = await window.storage.get('kong-startingbalance-2026', false); state.startingBalance = sb && sb.value ? JSON.parse(sb.value) : 0; }
   catch(e){ state.startingBalance = 0; }
+  try{ const rt = await window.storage.get('kong-rewardthresholds-2026', false); state.rewardThresholds = rt && rt.value ? JSON.parse(rt.value) : null; }
+  catch(e){ state.rewardThresholds = null; }
   return false;
 }
 async function saveProducts(){
@@ -1597,6 +1715,10 @@ async function saveExpenses(){
 }
 async function saveStartingBalance(){
   try{ await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false); }catch(e){ console.error('save failed', e); }
+  syncPush();
+}
+async function saveRewardThresholds(){
+  try{ await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false); }catch(e){ console.error('save failed', e); }
   syncPush();
 }
 function clientByName(name){ return state.clients.find(c=>c.name===name); }
@@ -1718,6 +1840,184 @@ function buildDonutLight(containerId, paidVal, outVal){
       </div>
     </div>`;
 }
+
+function buildRevenueExpenseChartLight(containerId, points){
+  // points: [{label, revenue, expense}]
+  const W = 700, H = 260, padTop = 16, padBottom = 30, padLeft = 50, padRight = 16;
+  const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+  const maxVal = Math.max(1, ...points.map(p=>Math.max(p.revenue, p.expense)));
+  const groupW = plotW / points.length;
+  const barW = Math.min(22, groupW*0.32);
+  let bars = '', labels = '';
+  points.forEach((p,i)=>{
+    const groupCx = padLeft + groupW*(i+0.5);
+    const revH = (p.revenue/maxVal) * (plotH-4);
+    const expH = (p.expense/maxVal) * (plotH-4);
+    const revX = groupCx - barW - 2, expX = groupCx + 2;
+    bars += svgEl('rect', { x:revX.toFixed(1), y:(padTop+plotH-revH).toFixed(1), width:barW.toFixed(1), height:revH.toFixed(1), rx:2, fill:PRINT_MINT });
+    bars += svgEl('rect', { x:expX.toFixed(1), y:(padTop+plotH-expH).toFixed(1), width:barW.toFixed(1), height:expH.toFixed(1), rx:2, fill:PRINT_CORAL });
+    labels += `<text x="${groupCx.toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10" fill="${PRINT_MUTED}" font-family="Inter">${p.label}</text>`;
+  });
+  document.getElementById(containerId).innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;" preserveAspectRatio="xMidYMid meet">
+      <line x1="${padLeft}" y1="${padTop+plotH}" x2="${W-padRight}" y2="${padTop+plotH}" stroke="#e8e9ee" stroke-width="1"/>
+      ${bars}
+      ${labels}
+    </svg>
+    <div style="display:flex; gap:16px; margin-top:10px; font-size:11px; color:${PRINT_MUTED};">
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${PRINT_MINT};margin-right:5px;"></span>Revenue</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${PRINT_CORAL};margin-right:5px;"></span>Expenses</span>
+    </div>`;
+}
+
+function buildProfitTrendChartLight(containerId, points){
+  // points: [{label, value}] — value can be negative (loss)
+  const W = 700, H = 240, padTop = 20, padBottom = 30, padLeft = 56, padRight = 16;
+  const plotW = W - padLeft - padRight, plotH = H - padTop - padBottom;
+  const maxAbs = Math.max(1, ...points.map(p=>Math.abs(p.value)));
+  const zeroY = padTop + plotH/2;
+  const xFor = i => padLeft + (points.length>1 ? (plotW/(points.length-1))*i : plotW/2);
+  const yFor = v => zeroY - (v/maxAbs)*(plotH/2-6);
+
+  const linePath = points.map((p,i)=> (i===0?'M':'L') + xFor(i).toFixed(1) + ' ' + yFor(p.value).toFixed(1)).join(' ');
+  let dots = '', labels = '';
+  points.forEach((p,i)=>{
+    const color = p.value>=0 ? PRINT_MINT : PRINT_CORAL;
+    dots += svgEl('circle', { cx:xFor(i).toFixed(1), cy:yFor(p.value).toFixed(1), r:4, fill:color });
+    labels += `<text x="${xFor(i).toFixed(1)}" y="${H-10}" text-anchor="middle" font-size="10" fill="${PRINT_MUTED}" font-family="Inter">${p.label}</text>`;
+  });
+  document.getElementById(containerId).innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;" preserveAspectRatio="xMidYMid meet">
+      <line x1="${padLeft}" y1="${zeroY}" x2="${W-padRight}" y2="${zeroY}" stroke="#e8e9ee" stroke-width="1.5"/>
+      <text x="${padLeft-8}" y="${zeroY+3}" text-anchor="end" font-size="9.5" fill="${PRINT_MUTED}" font-family="JetBrains Mono">0</text>
+      <path d="${linePath}" fill="none" stroke="${PRINT_VIOLET}" stroke-width="2.2" stroke-linejoin="round"/>
+      ${dots}
+      ${labels}
+    </svg>`;
+}
+
+function allMonthsWithActivity(){
+  const invoiceMonths = state.invoices.map(inv=>monthKey(inv.date)).filter(Boolean);
+  const expenseMonths = state.expenses.map(e=>monthKey(e.date)).filter(Boolean);
+  const nowKey = todayISO().slice(0,7);
+  return [...new Set([...invoiceMonths, ...expenseMonths, nowKey])].sort();
+}
+
+// ---------- month-end report reminder ----------
+function checkMonthEndReminder(){
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const daysLeft = lastDay - now.getDate(); // 0 = today is the last day
+  if(daysLeft > 2) return; // only surface this in the final 3 days of the month
+
+  const mk = now.toISOString().slice(0,7);
+  if(localStorage.getItem('kong-report-reminder-dismissed') === mk) return; // already handled or dismissed this month
+
+  document.getElementById('rtTitle').textContent = daysLeft===0 ? `Today is the last day of ${monthLabel(mk)}` : `${daysLeft+1} days left in ${monthLabel(mk)}`;
+  document.getElementById('rtText').textContent = `Don't forget to generate your Revenue & Expense report for ${monthLabel(mk)} before the month closes. No pressure if you're not ready yet — you can always run it later from the Expenses tab.`;
+  document.getElementById('reportReminderToast').style.display = 'flex';
+}
+document.getElementById('rtDownloadBtn').addEventListener('click', async (e)=>{
+  const mk = new Date().toISOString().slice(0,7);
+  await downloadAccountingReportPdf(e.currentTarget);
+  localStorage.setItem('kong-report-reminder-dismissed', mk);
+  document.getElementById('reportReminderToast').style.display = 'none';
+});
+document.getElementById('rtLaterBtn').addEventListener('click', ()=>{
+  // just hides for now -- reappears next time the page loads, as long as still within the month-end window
+  document.getElementById('reportReminderToast').style.display = 'none';
+});
+document.getElementById('rtCloseBtn').addEventListener('click', ()=>{
+  const mk = new Date().toISOString().slice(0,7);
+  localStorage.setItem('kong-report-reminder-dismissed', mk);
+  document.getElementById('reportReminderToast').style.display = 'none';
+});
+
+function renderAccountingReport(){
+  const months = allMonthsWithActivity();
+  const first = months[0], last = months[months.length-1];
+  document.getElementById('arPeriod').textContent = months.length>1 ? `${monthLabel(first)} – ${monthLabel(last)}` : monthLabel(first);
+  document.getElementById('arGeneratedDate').textContent = fmtDate(todayISO());
+
+  const rows = months.map(mk=>{
+    const revenue = paidRevenueForMonth(mk);
+    const expenses = totalExpensesForMonth(mk);
+    return { mk, label: monthLabel(mk), revenue, expenses, profit: revenue-expenses };
+  });
+
+  const totalRevenue = rows.reduce((s,r)=>s+r.revenue,0);
+  const totalExpenses = rows.reduce((s,r)=>s+r.expenses,0);
+  const totalProfit = totalRevenue - totalExpenses;
+  document.getElementById('arTotalRevenue').textContent = fmtTHB(totalRevenue);
+  document.getElementById('arTotalExpenses').textContent = fmtTHB(totalExpenses);
+  const netEl = document.getElementById('arNetProfit');
+  netEl.textContent = fmtTHB(totalProfit);
+  netEl.className = 'sp-kpi-val ' + (totalProfit>=0 ? 'sp-mint' : 'sp-coral');
+
+  buildRevenueExpenseChartLight('arBarChart', rows.map(r=>({ label:r.label.split(' ')[0]+' '+r.label.split(' ')[1].slice(2), revenue:r.revenue, expense:r.expenses })));
+  buildProfitTrendChartLight('arLineChart', rows.map(r=>({ label:r.label.split(' ')[0]+' '+r.label.split(' ')[1].slice(2), value:r.profit })));
+
+  document.getElementById('arTableBody').innerHTML = rows.map(r=>`
+    <tr>
+      <td>${r.label}</td>
+      <td class="r">${fmtTHB(r.revenue)}</td>
+      <td class="r">${fmtTHB(r.expenses)}</td>
+      <td class="r" style="color:${r.profit>=0?'#0e9668':'#c23a2d'};">${fmtTHB(r.profit)}</td>
+    </tr>`).join('');
+  document.getElementById('arTableTotals').innerHTML = `
+    <td>Total</td>
+    <td class="r">${fmtTHB(totalRevenue)}</td>
+    <td class="r">${fmtTHB(totalExpenses)}</td>
+    <td class="r" style="color:${totalProfit>=0?'#0e9668':'#c23a2d'};">${fmtTHB(totalProfit)}</td>`;
+}
+
+async function downloadAccountingReportPdf(btn){
+  const originalHTML = btn ? btn.innerHTML : null;
+  if(btn){ btn.disabled = true; btn.innerHTML = 'Generating PDF…'; }
+
+  renderAccountingReport();
+  const area = document.getElementById('accountingReportArea');
+  area.style.cssText = 'display:block; position:fixed; top:0; left:-10000px; z-index:-1;';
+
+  try{
+    if(typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined'){
+      throw new Error('PDF library did not load');
+    }
+    const canvas = await html2canvas(area, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    if(imgH <= pageH){
+      pdf.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+    } else {
+      let heightLeft = imgH, position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+      heightLeft -= pageH;
+      while(heightLeft > 0){
+        position = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+      }
+    }
+    pdf.save('Kong-Tattoo-Care-Revenue-Expense-Report.pdf');
+    return true;
+  }catch(e){
+    console.error('Report PDF generation failed', e);
+    alert('Could not generate the PDF — check your internet connection (this needs to load a PDF library) and try again.');
+    return false;
+  }finally{
+    area.style.cssText = 'display:none;';
+    if(btn){ btn.disabled = false; btn.innerHTML = originalHTML; }
+  }
+}
+
+document.getElementById('headerReportBtn').addEventListener('click', (e)=> downloadAccountingReportPdf(e.currentTarget));
 
 function populatePdfMonthSelect(){
   const sel = document.getElementById('pdfMonthSelect');
@@ -3624,6 +3924,7 @@ if(portalTokenFromUrl){
 
       renderAll();
       setupStockScrollSlider();
+      setTimeout(checkMonthEndReminder, 2500);
     } catch(e){
       console.error('init failed', e);
     }
