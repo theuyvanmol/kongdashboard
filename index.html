@@ -1196,16 +1196,23 @@
     <div class="sp-kpi"><div class="sp-kpi-lbl">Net profit / loss</div><div class="sp-kpi-val" id="arNetProfit">฿0</div></div>
   </div>
 
-  <div class="sp-chart-card" style="margin-bottom:16px;">
-    <div class="sp-chart-title">Revenue vs expenses by month</div>
+  <div class="sp-chart-card" style="margin-bottom:16px;" id="arBarChartCard">
+    <div class="sp-chart-title" id="arBarChartTitle">Revenue vs expenses by month</div>
     <div id="arBarChart"></div>
   </div>
-  <div class="sp-chart-card" style="margin-bottom:16px;">
+  <div class="sp-chart-card" style="margin-bottom:16px;" id="arLineChartCard">
     <div class="sp-chart-title">Net profit trend</div>
     <div id="arLineChart"></div>
   </div>
+  <div class="sp-chart-card" style="margin-bottom:16px; display:none;" id="arBreakdownCard">
+    <div class="sp-chart-title">Expense breakdown</div>
+    <table class="ar-table">
+      <thead><tr><th>Item</th><th>Type</th><th class="r">Amount</th></tr></thead>
+      <tbody id="arBreakdownRows"></tbody>
+    </table>
+  </div>
 
-  <table class="ar-table">
+  <table class="ar-table" id="arMainTable">
     <thead>
       <tr><th>Month</th><th class="r">Revenue</th><th class="r">Expenses</th><th class="r">Net profit / loss</th></tr>
     </thead>
@@ -1214,6 +1221,27 @@
   </table>
 
   <div class="sp-footer">KONG Tattoo Care Co., Ltd. · Generated from the Sales Invoice Dashboard · <span id="arGeneratedDate"></span></div>
+</div>
+
+<!-- Report month picker -->
+<div class="overlay" id="reportMonthModalOverlay">
+  <div class="glass modal" style="width:380px;">
+    <h3>Revenue &amp; Expense Report</h3>
+    <p style="font-size:12px; color:var(--text-2); margin:-8px 0 16px;">Choose a single month for a detailed breakdown, or all months for the full trend.</p>
+    <div class="field">
+      <label>Report period</label>
+      <select id="reportMonthSelect">
+        <option value="all">All months</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="reportMonthCancel">Cancel</button>
+      <button class="btn primary report-btn" id="reportMonthConfirm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download PDF
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- Add/edit expense modal -->
@@ -1919,7 +1947,7 @@ function checkMonthEndReminder(){
 }
 document.getElementById('rtDownloadBtn').addEventListener('click', async (e)=>{
   const mk = new Date().toISOString().slice(0,7);
-  await downloadAccountingReportPdf(e.currentTarget);
+  await downloadAccountingReportPdf(e.currentTarget, mk);
   localStorage.setItem('kong-report-reminder-dismissed', mk);
   document.getElementById('reportReminderToast').style.display = 'none';
 });
@@ -1933,8 +1961,9 @@ document.getElementById('rtCloseBtn').addEventListener('click', ()=>{
   document.getElementById('reportReminderToast').style.display = 'none';
 });
 
-function renderAccountingReport(){
-  const months = allMonthsWithActivity();
+function renderAccountingReport(selectedMonth){
+  const isSingleMonth = selectedMonth && selectedMonth !== 'all';
+  const months = isSingleMonth ? [selectedMonth] : allMonthsWithActivity();
   const first = months[0], last = months[months.length-1];
   document.getElementById('arPeriod').textContent = months.length>1 ? `${monthLabel(first)} – ${monthLabel(last)}` : monthLabel(first);
   document.getElementById('arGeneratedDate').textContent = fmtDate(todayISO());
@@ -1954,8 +1983,27 @@ function renderAccountingReport(){
   netEl.textContent = fmtTHB(totalProfit);
   netEl.className = 'sp-kpi-val ' + (totalProfit>=0 ? 'sp-mint' : 'sp-coral');
 
+  document.getElementById('arBarChartTitle').textContent = isSingleMonth ? `Revenue vs expenses — ${monthLabel(months[0])}` : 'Revenue vs expenses by month';
   buildRevenueExpenseChartLight('arBarChart', rows.map(r=>({ label:r.label.split(' ')[0]+' '+r.label.split(' ')[1].slice(2), revenue:r.revenue, expense:r.expenses })));
-  buildProfitTrendChartLight('arLineChart', rows.map(r=>({ label:r.label.split(' ')[0]+' '+r.label.split(' ')[1].slice(2), value:r.profit })));
+
+  // A profit "trend" line only makes sense across multiple months — for a
+  // single month, show an itemized expense breakdown instead, which is far
+  // more useful for actually doing the accounting on that one month.
+  document.getElementById('arLineChartCard').style.display = isSingleMonth ? 'none' : 'block';
+  document.getElementById('arBreakdownCard').style.display = isSingleMonth ? 'block' : 'none';
+  document.getElementById('arMainTable').style.display = isSingleMonth ? 'none' : 'table';
+  if(!isSingleMonth){
+    buildProfitTrendChartLight('arLineChart', rows.map(r=>({ label:r.label.split(' ')[0]+' '+r.label.split(' ')[1].slice(2), value:r.profit })));
+  } else {
+    const mk = months[0];
+    const items = [
+      ...state.fixedExpenses.map(e=>({ name:e.name, type:'Fixed (monthly)', amount:e.amount||0 })),
+      ...state.expenses.filter(e=>monthKey(e.date)===mk).map(e=>({ name:e.name, type:'One-off', amount:e.amount||0 })),
+    ].sort((a,b)=>b.amount-a.amount);
+    document.getElementById('arBreakdownRows').innerHTML = items.length ? items.map(it=>`
+      <tr><td>${escapeHtml(it.name)}</td><td style="color:#6b7080;">${it.type}</td><td class="r">${fmtTHB(it.amount)}</td></tr>
+    `).join('') : `<tr><td colspan="3" style="text-align:center;color:#9a9fac;">No expenses recorded for ${monthLabel(mk)}.</td></tr>`;
+  }
 
   document.getElementById('arTableBody').innerHTML = rows.map(r=>`
     <tr>
@@ -1971,11 +2019,11 @@ function renderAccountingReport(){
     <td class="r" style="color:${totalProfit>=0?'#0e9668':'#c23a2d'};">${fmtTHB(totalProfit)}</td>`;
 }
 
-async function downloadAccountingReportPdf(btn){
+async function downloadAccountingReportPdf(btn, selectedMonth){
   const originalHTML = btn ? btn.innerHTML : null;
   if(btn){ btn.disabled = true; btn.innerHTML = 'Generating PDF…'; }
 
-  renderAccountingReport();
+  renderAccountingReport(selectedMonth);
   const area = document.getElementById('accountingReportArea');
   area.style.cssText = 'display:block; position:fixed; top:0; left:-10000px; z-index:-1;';
 
@@ -2005,7 +2053,8 @@ async function downloadAccountingReportPdf(btn){
         heightLeft -= pageH;
       }
     }
-    pdf.save('Kong-Tattoo-Care-Revenue-Expense-Report.pdf');
+    const periodLabel = (selectedMonth && selectedMonth!=='all') ? monthLabel(selectedMonth).replace(' ','-') : 'All-Months';
+    pdf.save(`Kong-Tattoo-Care-Revenue-Expense-Report-${periodLabel}.pdf`);
     return true;
   }catch(e){
     console.error('Report PDF generation failed', e);
@@ -2017,7 +2066,23 @@ async function downloadAccountingReportPdf(btn){
   }
 }
 
-document.getElementById('headerReportBtn').addEventListener('click', (e)=> downloadAccountingReportPdf(e.currentTarget));
+const reportMonthModal = document.getElementById('reportMonthModalOverlay');
+function populateReportMonthSelect(){
+  const sel = document.getElementById('reportMonthSelect');
+  const months = allMonthsWithActivity().slice().reverse();
+  sel.innerHTML = '<option value="all">All months</option>' + months.map(mk=>`<option value="${mk}">${monthLabel(mk)}</option>`).join('');
+}
+document.getElementById('headerReportBtn').addEventListener('click', ()=>{
+  populateReportMonthSelect();
+  reportMonthModal.classList.add('show');
+});
+document.getElementById('reportMonthCancel').addEventListener('click', ()=> reportMonthModal.classList.remove('show'));
+reportMonthModal.addEventListener('click', (e)=>{ if(e.target===reportMonthModal) reportMonthModal.classList.remove('show'); });
+document.getElementById('reportMonthConfirm').addEventListener('click', async (e)=>{
+  const selectedMonth = document.getElementById('reportMonthSelect').value;
+  await downloadAccountingReportPdf(e.currentTarget, selectedMonth);
+  reportMonthModal.classList.remove('show');
+});
 
 function populatePdfMonthSelect(){
   const sel = document.getElementById('pdfMonthSelect');
