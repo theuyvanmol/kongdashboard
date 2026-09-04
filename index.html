@@ -1030,7 +1030,7 @@
         </div>
         <button class="btn primary" id="genPrintBtn" style="width:100%; justify-content:center; margin-top:8px;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-          Print / Save as PDF
+          <span id="genPrintBtnLabel">Print / Save as PDF</span>
         </button>
         <button class="btn ghost" id="genPaidToggleBtn" style="width:100%; justify-content:center; margin-top:8px;"></button>
         <button class="btn ghost" id="genDeliveredToggleBtn" style="width:100%; justify-content:center; margin-top:8px;"></button>
@@ -3269,6 +3269,7 @@ function renderGenPreview(){
     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 6L9 17l-5-5"/></svg> Paid — click to mark pending'
     : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="9"/></svg> Mark as paid';
   toggleBtn.onclick = async ()=>{
+    const justMarkedPaid = !inv.paid; // true only on the OFF -> ON transition
     inv.paid = !inv.paid;
     if(inv.paid){
       inv.paidDate = todayISO();
@@ -3282,6 +3283,9 @@ function renderGenPreview(){
     await saveInvoices();
     renderAll();
     renderGenPreview();
+    if(justMarkedPaid && inv.paid){
+      saveInvoicePdfToDrive(inv); // fire-and-forget — never blocks the paid toggle itself
+    }
   };
 
   const deliveryLocked = !inv.paid;
@@ -3303,6 +3307,7 @@ function renderGenPreview(){
   deliveryTabBtn.title = deliveryLocked ? 'Mark as paid first' : '';
   invoiceTabBtn.classList.toggle('active', genViewMode==='invoice');
   deliveryTabBtn.classList.toggle('active', genViewMode==='delivery');
+  document.getElementById('genPrintBtnLabel').textContent = genViewMode==='delivery' ? 'Print Delivery Note' : 'Print / Save as PDF';
 
   if(genViewMode==='delivery' && !deliveryLocked){
     renderDeliveryNotePreview(inv, wrap);
@@ -3419,6 +3424,61 @@ function renderDeliveryNotePreview(inv, wrap){
         <div class="ip-notes" style="text-align:center;">This delivery note confirms stock received and does not include pricing or payment details.</div>
       </div>
     </div>`;
+}
+
+// ---------- auto-save paid invoices to Drive (Month / Studio / invoice.pdf) ----------
+async function saveInvoicePdfToDrive(inv){
+  if(!syncUrl){ console.warn('Drive auto-save skipped — no Sheet sync configured.'); return; }
+  const area = document.getElementById('genPrintArea');
+  if(!area){ console.warn('Drive auto-save skipped — invoice preview not found.'); return; }
+
+  const originalLabel = document.getElementById('syncStatusLabel').textContent;
+  updateSyncLabel('Saving PDF to Drive…');
+  try{
+    if(typeof html2canvas === 'undefined' || typeof window.jspdf === 'undefined'){
+      throw new Error('PDF library did not load');
+    }
+    const canvas = await html2canvas(area, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW = pageW;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    if(imgH <= pageH){
+      pdf.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+    } else {
+      let heightLeft = imgH, position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+      heightLeft -= pageH;
+      while(heightLeft > 0){
+        position = heightLeft - imgH;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgW, imgH);
+        heightLeft -= pageH;
+      }
+    }
+
+    const pdfBase64 = pdf.output('datauristring').split(',')[1];
+    const monthLbl = monthLabel(monthKey(inv.date));
+    const filename = (inv.invoiceNo || inv.id) + '.pdf';
+
+    const res = await fetch(syncUrl, {
+      method:'POST', cache:'no-store',
+      headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action:'uploadInvoicePdf', month: monthLbl, studio: inv.client, filename, pdfBase64 })
+    });
+    const data = await res.json();
+    if(!data.success) throw new Error(data.error || 'Drive upload failed');
+    updateSyncLabel('Saved PDF to Drive');
+  }catch(e){
+    console.error('Drive auto-save failed', e);
+    updateSyncLabel('Drive save failed — check connection');
+  }finally{
+    setTimeout(()=> updateSyncLabel(originalLabel), 3000);
+  }
 }
 
 // ---------- top-level render ----------
