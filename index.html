@@ -291,23 +291,35 @@
     font-family:'Inter',sans-serif; position:relative; overflow:hidden;
   }
   .ip-stamp{
-    position:absolute; top:38px; right:38px; z-index:5; pointer-events:none;
-    width:132px; height:132px; border-radius:50%;
+    position:absolute; top:34px; right:34px; z-index:5; pointer-events:none;
+    width:112px; height:112px; border-radius:50%;
     border:5px solid #1a9e5c; display:flex; align-items:center; justify-content:center;
     transform:rotate(-16deg); opacity:0.88; mix-blend-mode:multiply;
   }
   .ip-stamp::before{
-    content:''; position:absolute; inset:8px; border-radius:50%; border:1.5px solid #1a9e5c;
+    content:''; position:absolute; inset:7px; border-radius:50%; border:1.5px solid #1a9e5c;
   }
   .ip-stamp-text{
-    font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:22px; letter-spacing:0.06em;
+    font-family:'Space Grotesk',sans-serif; font-weight:800; font-size:16px; letter-spacing:0.04em;
     color:#1a9e5c; text-align:center; line-height:1.15;
   }
-  .ip-stamp-sub{ font-size:8px; letter-spacing:0.18em; font-weight:700; color:#1a9e5c; margin-top:2px; }
+  .ip-stamp-sub{ font-size:7.5px; letter-spacing:0.14em; font-weight:700; color:#1a9e5c; margin-top:2px; }
+  .ip-stamp.delivered{ right:158px; border-color:#2f6fd6; transform:rotate(10deg); }
+  .ip-stamp.delivered::before{ border-color:#2f6fd6; }
+  .ip-stamp.delivered .ip-stamp-text, .ip-stamp.delivered .ip-stamp-sub{ color:#2f6fd6; }
   @media (max-width:480px){
-    .ip-stamp{ width:104px; height:104px; top:24px; right:24px; }
-    .ip-stamp-text{ font-size:17px; }
+    .ip-stamp{ width:92px; height:92px; top:22px; right:22px; }
+    .ip-stamp-text{ font-size:13px; }
+    .ip-stamp.delivered{ right:130px; }
   }
+  .gen-view-tabs{ display:flex; gap:8px; margin-top:14px; }
+  .gen-view-tabs .btn{ flex:1; justify-content:center; font-size:11.5px; }
+  .gen-view-tabs .btn.active{ background:linear-gradient(135deg, var(--violet), var(--aurora-teal)); color:#04101a; border-color:transparent; }
+  .gen-view-tabs .btn[disabled], #genDeliveredToggleBtn[disabled]{ opacity:0.4; cursor:not-allowed; }
+  .dn-signoff{ display:flex; gap:30px; margin-top:36px; }
+  .dn-sign-line{ flex:1; }
+  .dn-sign-line span{ font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:#9a9fac; display:block; margin-bottom:22px; }
+  .dn-line{ border-bottom:1.5px solid #cfd2da; height:1px; }
   .ip-head{ display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:10px; }
   .ip-brand{ font-size:19px; font-weight:800; font-family:'Space Grotesk',sans-serif; letter-spacing:-0.02em; }
   .ip-brand span{ color:var(--violet); }
@@ -1021,6 +1033,11 @@
           Print / Save as PDF
         </button>
         <button class="btn ghost" id="genPaidToggleBtn" style="width:100%; justify-content:center; margin-top:8px;"></button>
+        <button class="btn ghost" id="genDeliveredToggleBtn" style="width:100%; justify-content:center; margin-top:8px;"></button>
+        <div class="gen-view-tabs">
+          <button class="btn ghost small" id="genViewInvoiceBtn">Invoice/Receipt</button>
+          <button class="btn ghost small" id="genViewDeliveryBtn">Delivery Note</button>
+        </div>
       </div>
       <div class="gen-preview-wrap" id="genPreviewWrap">
         <div class="gen-empty">Add at least one invoice to generate a printable copy.</div>
@@ -3214,30 +3231,84 @@ function populateGenInvoiceSelect(){
   renderGenPreview();
 }
 document.getElementById('ivMonthFilter').addEventListener('change', renderInvoicesView);
-document.getElementById('genClient').addEventListener('change', populateGenInvoiceSelect);
-document.getElementById('genInvoiceSelect').addEventListener('change', renderGenPreview);
+document.getElementById('genClient').addEventListener('change', ()=>{ genViewMode='invoice'; populateGenInvoiceSelect(); });
+document.getElementById('genInvoiceSelect').addEventListener('change', ()=>{ genViewMode='invoice'; renderGenPreview(); });
 document.getElementById('genPrintBtn').addEventListener('click', ()=> window.print());
+document.getElementById('genViewInvoiceBtn').addEventListener('click', ()=>{
+  genViewMode = 'invoice';
+  renderGenPreview();
+});
+document.getElementById('genViewDeliveryBtn').addEventListener('click', (e)=>{
+  if(e.currentTarget.disabled) return;
+  genViewMode = 'delivery';
+  renderGenPreview();
+});
+
+let genViewMode = 'invoice'; // 'invoice' | 'delivery'
 
 function renderGenPreview(){
   const wrap = document.getElementById('genPreviewWrap');
   const invId = document.getElementById('genInvoiceSelect').value;
   const inv = state.invoices.find(x=>x.id===invId);
   const toggleBtn = document.getElementById('genPaidToggleBtn');
+  const deliveredBtn = document.getElementById('genDeliveredToggleBtn');
+  const invoiceTabBtn = document.getElementById('genViewInvoiceBtn');
+  const deliveryTabBtn = document.getElementById('genViewDeliveryBtn');
   if(!inv){
     wrap.innerHTML = '<div class="gen-empty">Add at least one invoice to generate a printable copy.</div>';
     toggleBtn.style.display = 'none';
+    deliveredBtn.style.display = 'none';
+    invoiceTabBtn.parentElement.style.display = 'none';
     return;
   }
   toggleBtn.style.display = 'flex';
+  deliveredBtn.style.display = 'flex';
+  invoiceTabBtn.parentElement.style.display = 'flex';
+
   toggleBtn.innerHTML = inv.paid
     ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 6L9 17l-5-5"/></svg> Paid — click to mark pending'
     : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="9"/></svg> Mark as paid';
   toggleBtn.onclick = async ()=>{
     inv.paid = !inv.paid;
+    if(inv.paid){
+      inv.paidDate = todayISO();
+    } else {
+      // unpaying also clears delivery — we don't deliver stock that isn't paid for
+      inv.paidDate = null;
+      inv.delivered = false;
+      inv.deliveredDate = null;
+      if(genViewMode==='delivery') genViewMode = 'invoice';
+    }
     await saveInvoices();
     renderAll();
     renderGenPreview();
   };
+
+  const deliveryLocked = !inv.paid;
+  deliveredBtn.disabled = deliveryLocked;
+  deliveredBtn.title = deliveryLocked ? 'Mark as paid first' : '';
+  deliveredBtn.innerHTML = inv.delivered
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M20 6L9 17l-5-5"/></svg> Delivered — click to undo'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Mark as delivered';
+  deliveredBtn.onclick = async ()=>{
+    if(deliveryLocked) return;
+    inv.delivered = !inv.delivered;
+    inv.deliveredDate = inv.delivered ? todayISO() : null;
+    await saveInvoices();
+    renderAll();
+    renderGenPreview();
+  };
+
+  deliveryTabBtn.disabled = deliveryLocked;
+  deliveryTabBtn.title = deliveryLocked ? 'Mark as paid first' : '';
+  invoiceTabBtn.classList.toggle('active', genViewMode==='invoice');
+  deliveryTabBtn.classList.toggle('active', genViewMode==='delivery');
+
+  if(genViewMode==='delivery' && !deliveryLocked){
+    renderDeliveryNotePreview(inv, wrap);
+    return;
+  }
+  genViewMode = 'invoice'; // fall back if delivery got locked out from under us (e.g. just unpaid)
 
   const subtotal = invoiceSubtotal(inv);
   const total = invoiceTotal(inv);
@@ -3253,10 +3324,17 @@ function renderGenPreview(){
   wrap.innerHTML = `
     <div class="invoice-paper" id="genPrintArea">
       ${inv.paid ? `
-      <div class="ip-stamp">
+      <div class="ip-stamp paid">
         <div>
           <div class="ip-stamp-text">PAID</div>
-          <div class="ip-stamp-sub">${fmtDate(inv.date)}</div>
+          <div class="ip-stamp-sub">${fmtDate(inv.paidDate || inv.date)}</div>
+        </div>
+      </div>` : ''}
+      ${inv.delivered ? `
+      <div class="ip-stamp delivered">
+        <div>
+          <div class="ip-stamp-text">DELIVERED</div>
+          <div class="ip-stamp-sub">${fmtDate(inv.deliveredDate)}</div>
         </div>
       </div>` : ''}
       <div class="ip-head">
@@ -3299,6 +3377,46 @@ function renderGenPreview(){
           <div class="ip-notes" style="margin-top:10px;">Full payment must be received and confirmed prior to shipment. Orders are dispatched with a tracking number once payment is cleared. KONG display units remain the property of KONG Tattoo Care Co., Ltd.</div>
         </div>
         <img class="ip-qr" src="${QR_PAYMENT_IMAGE}" alt="Scan to pay — KONG Tattoo Care" />
+      </div>
+    </div>`;
+}
+
+function renderDeliveryNotePreview(inv, wrap){
+  const client = clientByName(inv.client);
+  const addressLine = client && client.address ? `<div class="ip-address">${escapeHtml(client.address)}</div>` : '';
+  const rows = inv.lines.filter(l=>l.qty>0).map(l=>{
+    const p = productById(l.productId);
+    if(!p) return '';
+    return `<tr><td>${escapeHtml(p.name)}</td><td class="r">${l.qty}</td></tr>`;
+  }).join('');
+
+  wrap.innerHTML = `
+    <div class="invoice-paper" id="genPrintArea">
+      <div class="ip-head">
+        <div class="ip-brand">KONG<span>·</span>Tattoo Care</div>
+        <div class="ip-doctitle">Delivery Note</div>
+      </div>
+      <div class="ip-meta-row">
+        <div>
+          <div class="ip-lbl">Deliver to</div>
+          <div class="ip-bill-name">${escapeHtml(inv.client)}</div>
+          ${addressLine}
+        </div>
+        <div class="ip-meta">
+          <div class="ip-meta-line"><span>Delivery Note No.</span><b>DN-${escapeHtml(inv.invoiceNo||'—')}</b></div>
+          <div class="ip-meta-line"><span>Date</span><b>${fmtDate(inv.deliveredDate || todayISO())}</b></div>
+        </div>
+      </div>
+      <table class="ip-table">
+        <thead><tr><th>Item</th><th class="r">Qty</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="dn-signoff">
+        <div class="dn-sign-line"><span>Received by</span><div class="dn-line"></div></div>
+        <div class="dn-sign-line"><span>Date</span><div class="dn-line"></div></div>
+      </div>
+      <div class="ip-footer" style="justify-content:center;">
+        <div class="ip-notes" style="text-align:center;">This delivery note confirms stock received and does not include pricing or payment details.</div>
       </div>
     </div>`;
 }
