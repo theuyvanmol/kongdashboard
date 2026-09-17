@@ -346,6 +346,8 @@
   .ip-address{ font-size:11.5px; color:#6b7080; margin-top:4px; max-width:260px; line-height:1.5; }
   .ip-company{ font-size:12.5px; color:#12141c; font-weight:600; margin-top:2px; }
   .ip-taxid{ font-size:11px; color:#6b7080; margin-top:4px; font-family:'JetBrains Mono',monospace; }
+  .ip-field-lbl{ font-weight:700; color:#12141c; }
+  .ip-company .ip-field-lbl, .ip-taxid .ip-field-lbl, .ip-address .ip-field-lbl{ margin-right:2px; }
   .ip-status{ display:inline-block; margin-top:6px; font-size:10px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:4px 10px; border-radius:20px; }
   .ip-status.paid{ background:rgba(46,217,168,0.15); color:#0e9668; }
   .ip-status.pending{ background:rgba(255,107,94,0.14); color:#c23a2d; }
@@ -3326,9 +3328,9 @@ function renderGenPreview(){
   }).join('');
 
   const client = clientByName(inv.client);
-  const companyLine = client && client.companyName ? `<div class="ip-company">${escapeHtml(client.companyName)}</div>` : '';
-  const taxIdLine = client && client.taxId ? `<div class="ip-taxid">Tax ID: ${escapeHtml(client.taxId)}</div>` : '';
-  const addressLine = client && client.address ? `<div class="ip-address">${escapeHtml(client.address)}</div>` : '';
+  const companyLine = client && client.companyName ? `<div class="ip-company"><span class="ip-field-lbl">Company Name:</span> ${escapeHtml(client.companyName)}</div>` : '';
+  const taxIdLine = client && client.taxId ? `<div class="ip-taxid"><span class="ip-field-lbl">Tax ID:</span> ${escapeHtml(client.taxId)}</div>` : '';
+  const addressLine = client && client.address ? `<div class="ip-address"><span class="ip-field-lbl">Address:</span> ${escapeHtml(client.address)}</div>` : '';
 
   wrap.innerHTML = `
     <div class="invoice-paper" id="genPrintArea">
