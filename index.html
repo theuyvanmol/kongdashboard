@@ -344,6 +344,8 @@
   .ip-bank{ flex:1; min-width:200px; }
   .ip-bank div{ font-size:11px; color:#6b7080; margin-top:2px; }
   .ip-address{ font-size:11.5px; color:#6b7080; margin-top:4px; max-width:260px; line-height:1.5; }
+  .ip-company{ font-size:12.5px; color:#12141c; font-weight:600; margin-top:2px; }
+  .ip-taxid{ font-size:11px; color:#6b7080; margin-top:4px; font-family:'JetBrains Mono',monospace; }
   .ip-status{ display:inline-block; margin-top:6px; font-size:10px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; padding:4px 10px; border-radius:20px; }
   .ip-status.paid{ background:rgba(46,217,168,0.15); color:#0e9668; }
   .ip-status.pending{ background:rgba(255,107,94,0.14); color:#c23a2d; }
@@ -1769,7 +1771,7 @@ async function saveRewardThresholds(){
 function clientByName(name){ return state.clients.find(c=>c.name===name); }
 function ensureClientExists(name){
   if(!name) return;
-  if(!clientByName(name)) state.clients.push({ name, address:'', standSize:'', portalToken:'' });
+  if(!clientByName(name)) state.clients.push({ name, address:'', standSize:'', portalToken:'', companyName:'', taxId:'' });
 }
 
 // ---------- settings modal ----------
@@ -3324,6 +3326,8 @@ function renderGenPreview(){
   }).join('');
 
   const client = clientByName(inv.client);
+  const companyLine = client && client.companyName ? `<div class="ip-company">${escapeHtml(client.companyName)}</div>` : '';
+  const taxIdLine = client && client.taxId ? `<div class="ip-taxid">Tax ID: ${escapeHtml(client.taxId)}</div>` : '';
   const addressLine = client && client.address ? `<div class="ip-address">${escapeHtml(client.address)}</div>` : '';
 
   wrap.innerHTML = `
@@ -3357,7 +3361,9 @@ function renderGenPreview(){
         <div>
           <div class="ip-lbl">Bill to</div>
           <div class="ip-bill-name">${escapeHtml(inv.client)}</div>
+          ${companyLine}
           ${addressLine}
+          ${taxIdLine}
         </div>
         <div class="ip-meta">
           <div class="ip-meta-line"><span>${inv.paid ? 'Receipt No.' : 'Invoice No.'}</span><b>${escapeHtml(inv.invoiceNo||'—')}</b></div>
@@ -3676,6 +3682,8 @@ function renderClientManageRows(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
         </div>
       </div>
+      <input type="text" class="client-company-input" placeholder="Company name for invoices (optional)" value="${escapeHtml(c.companyName||'')}" style="margin-bottom:6px;" />
+      <input type="text" class="client-taxid-input" placeholder="Tax ID (optional)" value="${escapeHtml(c.taxId||'')}" style="margin-bottom:6px;" />
       <input type="text" class="client-address-input" placeholder="Studio address" value="${escapeHtml(c.address||'')}" style="margin-bottom:6px;" />
       <select class="client-stand-select">
         <option value="">No stand size set</option>
@@ -3689,6 +3697,20 @@ function renderClientManageRows(){
   `).join('');
   wrap.querySelectorAll('.portal-link-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> openPortalLinkModal(btn.dataset.name));
+  });
+  wrap.querySelectorAll('.client-company-input').forEach(input=>{
+    input.addEventListener('change', async ()=>{
+      const name = input.closest('.client-row').dataset.name;
+      const c = clientByName(name);
+      if(c){ c.companyName = input.value.trim(); await saveClients(); }
+    });
+  });
+  wrap.querySelectorAll('.client-taxid-input').forEach(input=>{
+    input.addEventListener('change', async ()=>{
+      const name = input.closest('.client-row').dataset.name;
+      const c = clientByName(name);
+      if(c){ c.taxId = input.value.trim(); await saveClients(); }
+    });
   });
   wrap.querySelectorAll('.client-address-input').forEach(input=>{
     input.addEventListener('change', async ()=>{
@@ -3732,7 +3754,7 @@ async function addClientFromInput(){
   const name = input.value.trim();
   if(!name) return;
   if(clientByName(name)){ input.value=''; return; }
-  state.clients.push({ name, address:'', standSize:'', portalToken:'' });
+  state.clients.push({ name, address:'', standSize:'', portalToken:'', companyName:'', taxId:'' });
   input.value = '';
   await saveClients();
   renderClientManageRows();
