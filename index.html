@@ -3555,10 +3555,16 @@ async function saveInvoicePdfToDrive(inv){
 }
 
 // ---------- top-level render ----------
+// NOTE: this used to re-derive a client stub for every name that appears
+// anywhere in invoice history on EVERY render pass. That meant deleting a
+// studio that had any past invoices brought it right back on the very next
+// render — immediately, not "when a new invoice is added for them" like the
+// delete confirmation promises. Client stubs are now only ever created at
+// the one place a studio name is actually chosen for a new/edited invoice
+// (the ifSave handler below) — never from a blanket historical scan here —
+// so a deleted studio stays deleted until you genuinely enter a new invoice
+// for them again.
 function renderAll(){
-  const before = state.clients.length;
-  [...new Set(state.invoices.map(inv=>inv.client))].forEach(name=> ensureClientExists(name));
-  if(state.clients.length !== before) saveClients();
   renderOverview();
   renderInvoicesView();
   renderMonthlyView();
@@ -3662,6 +3668,13 @@ document.getElementById('ifSave').addEventListener('click', async ()=>{
   } else {
     state.invoices.push({ id: uid('inv'), client, date, invoiceNo, discount, lines, paid:false });
   }
+  // This is the one place a studio name is chosen for an invoice, so it's
+  // the one place a client stub gets (re)created if it's missing — e.g. a
+  // brand new studio, or one you deliberately removed earlier and are now
+  // genuinely billing again. Never done as a side effect of just rendering.
+  const clientsBefore = state.clients.length;
+  ensureClientExists(client);
+  if(state.clients.length !== clientsBefore) await saveClients();
   invoiceModal.classList.remove('show');
   await saveInvoices();
   renderAll();
@@ -3733,9 +3746,23 @@ document.getElementById('addProductBtn').addEventListener('click', async ()=>{
 const clientsModal = document.getElementById('clientsModalOverlay');
 function renderClientManageRows(){
   const wrap = document.getElementById('clientManageRows');
-  const names = [...new Set(state.invoices.map(inv=>inv.client))].sort();
-  names.forEach(n=> ensureClientExists(n));
-  const sorted = state.clients.slice().sort((a,b)=> a.name.localeCompare(b.name));
+  // Studios that have invoice history but no client record yet (e.g. a
+  // brand-new one, or one you deliberately removed earlier) still show up
+  // here so you can fill in their details — but only as a DISPLAY-ONLY
+  // placeholder. Nothing is added to state.clients (and nothing is saved)
+  // just from opening this modal; that used to be exactly how a removed
+  // studio came right back — a saveClients() triggered by editing some
+  // *other* studio would push whatever phantom stub had been silently
+  // synthesized during render. Each field's own handler below calls
+  // ensureClientExists() itself, so a real record is only ever created the
+  // moment you actually type something for that studio.
+  const invoicedNames = [...new Set(state.invoices.map(inv=>inv.client))];
+  const existingNames = new Set(state.clients.map(c=>c.name));
+  const displayList = state.clients.slice();
+  invoicedNames.forEach(n=>{
+    if(!existingNames.has(n)) displayList.push({ name:n, address:'', standSize:'', portalToken:'', companyName:'', taxId:'' });
+  });
+  const sorted = displayList.sort((a,b)=> a.name.localeCompare(b.name));
   if(sorted.length===0){
     wrap.innerHTML = '<div class="named-row-empty">No studios yet — add one below.</div>';
     return;
@@ -3768,29 +3795,33 @@ function renderClientManageRows(){
   wrap.querySelectorAll('.client-company-input').forEach(input=>{
     input.addEventListener('change', async ()=>{
       const name = input.closest('.client-row').dataset.name;
+      ensureClientExists(name);
       const c = clientByName(name);
-      if(c){ c.companyName = input.value.trim(); await saveClients(); }
+      c.companyName = input.value.trim(); await saveClients();
     });
   });
   wrap.querySelectorAll('.client-taxid-input').forEach(input=>{
     input.addEventListener('change', async ()=>{
       const name = input.closest('.client-row').dataset.name;
+      ensureClientExists(name);
       const c = clientByName(name);
-      if(c){ c.taxId = input.value.trim(); await saveClients(); }
+      c.taxId = input.value.trim(); await saveClients();
     });
   });
   wrap.querySelectorAll('.client-address-input').forEach(input=>{
     input.addEventListener('change', async ()=>{
       const name = input.closest('.client-row').dataset.name;
+      ensureClientExists(name);
       const c = clientByName(name);
-      if(c){ c.address = input.value.trim(); await saveClients(); }
+      c.address = input.value.trim(); await saveClients();
     });
   });
   wrap.querySelectorAll('.client-stand-select').forEach(sel=>{
     sel.addEventListener('change', async ()=>{
       const name = sel.closest('.client-row').dataset.name;
+      ensureClientExists(name);
       const c = clientByName(name);
-      if(c){ c.standSize = sel.value; await saveClients(); renderAll(); }
+      c.standSize = sel.value; await saveClients(); renderAll();
     });
   });
   wrap.querySelectorAll('.remove-client').forEach(btn=>{
@@ -3841,6 +3872,7 @@ function portalUrlForToken(token){
 let currentPortalClient = null;
 const portalLinkModal = document.getElementById('portalLinkModalOverlay');
 async function openPortalLinkModal(clientName){
+  ensureClientExists(clientName); // deliberate action, same as typing a field — fine to create the record here
   const client = clientByName(clientName);
   if(!client) return;
   currentPortalClient = client;
