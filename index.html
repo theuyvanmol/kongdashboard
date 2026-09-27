@@ -559,6 +559,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -1343,18 +1344,12 @@
   <div class="glass modal" style="width:440px;">
     <h3 data-i18n="hdrSyncDevices">Sync across devices</h3>
     <p style="font-size:12.5px; color:var(--text-2); line-height:1.6; margin:-8px 0 16px;">
-      Paste the Google Apps Script Web App URL here to sync this dashboard's data to a Google Sheet.
-      Every laptop or iPad using this same URL will read and write the same data.
+      Every laptop or iPad open on this dashboard shares the same live data —
+      changes appear on every screen the instant they're saved, no refresh needed.
     </p>
-    <div class="field">
-      <label>Google Sheet sync URL</label>
-      <input type="text" id="syncUrlInput" placeholder="https://script.google.com/macros/s/.../exec" />
-    </div>
-    <div id="syncStatusText" style="font-size:12px; color:var(--text-3); margin-bottom:6px;">Not connected — data is only saved on this device.</div>
+    <div id="syncStatusText" style="font-size:12px; color:var(--text-3); margin-bottom:6px;">Connected to Supabase — every device updates live, no waiting.</div>
     <div class="modal-actions">
-      <button class="btn ghost" id="syncDisconnect" style="color:var(--coral);">Disconnect</button>
-      <button class="btn ghost" id="settingsCancel">Cancel</button>
-      <button class="btn primary" id="syncConnect">Connect</button>
+      <button class="btn primary" id="settingsCancel">Close</button>
     </div>
   </div>
 </div>
@@ -1571,121 +1566,116 @@ function seedInvoices(){
 }
 
 let state = { products: [], invoices: [], clients: [], stockEntries: [], studioReports: [], fixedExpenses: [], expenses: [], startingBalance: 0, rewardThresholds: null };
-const DEFAULT_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwupcEW_Lnni-zHT5DLTziGXkZpSKID4EYWyApiT8F6zy7vAvfWdTir5SWdJOjYkAUZ/exec';
-const OLD_BROKEN_URL = 'https://script.google.com/macros/s/AKfycbw2kNXQToeLzzi3XA1D7k-V_W9C0wwk8F8E5-cKZURpHYd3I3Pyg1fqadsWwOKP9Ao/exec';
-let savedSyncUrl = localStorage.getItem('kong-sync-url');
-if(savedSyncUrl === OLD_BROKEN_URL){
-  localStorage.removeItem('kong-sync-url');
-  savedSyncUrl = null;
-}
-let syncUrl = savedSyncUrl === '__disconnected__' ? '' : (savedSyncUrl || DEFAULT_SYNC_URL);
-let isSyncing = false;
+// ---------- Supabase live sync ----------
+// The dashboard's data (products, invoices, clients, stock log, studio
+// reports, fixed/one-off expenses, settings) lives in Supabase Postgres now,
+// not the Google Sheet. Supabase Realtime pushes every change to every open
+// dashboard the instant it happens — there's no polling loop any more, so
+// there's no "which one got there first" race left to have.
+//
+// Google Apps Script is kept around for exactly one thing: saving a paid
+// invoice's PDF into a Google Drive folder (Drive folder creation isn't
+// something Supabase does, and that feature doesn't touch any of the data
+// below), so DRIVE_SYNC_URL below is only ever used by saveInvoicePdfToDrive.
+const SUPABASE_URL = 'https://ulhuyfqhtprjxdgvdkwx.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_3JwPFYZbbEuLHsP5hmu19A_UX3yCxoq';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const DRIVE_SYNC_URL = 'https://script.google.com/macros/s/AKfycbwupcEW_Lnni-zHT5DLTziGXkZpSKID4EYWyApiT8F6zy7vAvfWdTir5SWdJOjYkAUZ/exec';
 
-// ---------- sync queue ----------
-// Every save (adding/editing an invoice, expense, etc.) fires a push to the
-// Sheet in the background, and a 20-second timer independently fires a pull
-// to pick up changes from other devices. Both touch the same `state` object,
-// and a push involves its own network round trip (fetch current sheet, merge,
-// then POST) that can take a couple of seconds. If the 20s pull happened to
-// land while a push was still in flight, the pull would grab the OLD sheet
-// data (without whatever was just saved) and stomp over the local screen with
-// it — the invoice you just entered would disappear and you'd have to redo it.
-// Routing every push and pull through one FIFO queue guarantees they never
-// run at the same time: whichever was requested first finishes completely
-// (including reaching the Sheet) before the next one starts, so a pull can
-// never see stale data and overwrite a save that just happened.
-let syncQueue = Promise.resolve();
-function queueSync(task){
-  const run = async () => { try{ await task(); }catch(e){ console.error('sync task failed', e); } };
-  syncQueue = syncQueue.then(run, run);
-  return syncQueue;
-}
+let isSyncing = false; // drives the status label only — Postgres itself guarantees writes never collide
 
 function updateSyncLabel(text){
   const label = document.getElementById('syncStatusLabel');
   if(label) label.textContent = text;
 }
 
-async function syncPull(){
-  if(!syncUrl) return false;
-  try{
-    const bustCache = syncUrl + (syncUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-    const res = await fetch(bustCache, { cache: 'no-store' });
-    const data = await res.json();
-    if(data && data.success){
-      state.products = data.products || [];
-      state.invoices = data.invoices || [];
-      state.clients = data.clients || [];
-      state.stockEntries = data.stockEntries || [];
-      state.studioReports = data.studioReports || [];
-      state.fixedExpenses = data.fixedExpenses || [];
-      state.expenses = data.expenses || [];
-      state.startingBalance = data.startingBalance || 0;
-      state.rewardThresholds = data.rewardThresholds || null;
-      await window.storage.set('kong-products-2026', JSON.stringify(state.products), false);
-      await window.storage.set('kong-invoices-2026', JSON.stringify(state.invoices), false);
-      await window.storage.set('kong-clients-2026', JSON.stringify(state.clients), false);
-      await window.storage.set('kong-stock-2026', JSON.stringify(state.stockEntries), false);
-      await window.storage.set('kong-reports-2026', JSON.stringify(state.studioReports), false);
-      await window.storage.set('kong-fixedexpenses-2026', JSON.stringify(state.fixedExpenses), false);
-      await window.storage.set('kong-expenses-2026', JSON.stringify(state.expenses), false);
-      await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false);
-      await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false);
-      return true;
-    }
-  }catch(e){ console.error('sync pull failed', e); }
-  return false;
+const DEFAULT_FIXED_EXPENSES = [
+  { id: 'fx1', name: 'PRIMO Marketing Service', amount: 0 },
+  { id: 'fx2', name: 'Accountant Fee', amount: 0 },
+  { id: 'fx3', name: 'Tony - Petrol Fee', amount: 0 },
+];
+
+const STORAGE_KEYS = {
+  products: 'kong-products-2026', invoices: 'kong-invoices-2026', clients: 'kong-clients-2026',
+  stockEntries: 'kong-stock-2026', studioReports: 'kong-reports-2026',
+  fixedExpenses: 'kong-fixedexpenses-2026', expenses: 'kong-expenses-2026'
+};
+function seedFor(key){
+  if(key==='products') return seedProducts;
+  if(key==='invoices') return seedInvoices();
+  if(key==='fixedExpenses') return DEFAULT_FIXED_EXPENSES.slice();
+  return [];
 }
 
-function mergeById(local, remote){
-  const localIds = new Set(local.map(x=>x.id));
-  const merged = local.slice();
-  remote.forEach(r=>{ if(r.id && !localIds.has(r.id)) merged.push(r); });
-  return merged;
+// Row <-> app-state mapping for every table. `idField` is the column
+// Supabase upserts/deletes are keyed on (Postgres primary key).
+const TABLE_MAP = {
+  products: { table: 'products', idField: 'id',
+    toRow: p => ({ id: p.id, name: p.name, price: p.price || 0 }),
+    fromRow: r => ({ id: r.id, name: r.name, price: Number(r.price) || 0 }) },
+  invoices: { table: 'invoices', idField: 'id',
+    toRow: inv => ({ id: inv.id, client: inv.client, invoice_no: inv.invoiceNo || '', date: inv.date || null, discount: inv.discount || 0, paid: !!inv.paid, lines: inv.lines || [], paid_date: inv.paidDate || null, delivered: !!inv.delivered, delivered_date: inv.deliveredDate || null }),
+    fromRow: r => ({ id: r.id, client: r.client, invoiceNo: r.invoice_no || '', date: r.date, discount: Number(r.discount) || 0, paid: !!r.paid, lines: r.lines || [], paidDate: r.paid_date || null, delivered: !!r.delivered, deliveredDate: r.delivered_date || null }) },
+  clients: { table: 'clients', idField: 'name',
+    toRow: c => ({ name: c.name, address: c.address || '', stand_size: c.standSize || '', lat: (c.lat === undefined || c.lat === null) ? null : c.lat, lng: (c.lng === undefined || c.lng === null) ? null : c.lng, portal_token: c.portalToken || '', company_name: c.companyName || '', tax_id: c.taxId || '' }),
+    fromRow: r => ({ name: r.name, address: r.address || '', standSize: r.stand_size || '', lat: r.lat, lng: r.lng, portalToken: r.portal_token || '', companyName: r.company_name || '', taxId: r.tax_id || '' }) },
+  stockEntries: { table: 'stock_entries', idField: 'id',
+    toRow: e => ({ id: e.id, client: e.client, product_id: e.productId, qty: e.qty || 0, date: e.date || null, note: e.note || '' }),
+    fromRow: r => ({ id: r.id, client: r.client, productId: r.product_id, qty: Number(r.qty) || 0, date: r.date, note: r.note || '' }) },
+  studioReports: { table: 'studio_reports', idField: 'id',
+    toRow: r => ({ id: r.id, client: r.client, date: r.date || null, items: r.items || [], note: r.note || '', status: r.status || 'pending' }),
+    fromRow: r => ({ id: r.id, client: r.client, date: r.date, items: r.items || [], note: r.note || '', status: r.status || 'pending' }) },
+  fixedExpenses: { table: 'fixed_expenses', idField: 'id',
+    toRow: e => ({ id: e.id, name: e.name, amount: e.amount || 0 }),
+    fromRow: r => ({ id: r.id, name: r.name, amount: Number(r.amount) || 0 }) },
+  expenses: { table: 'expenses', idField: 'id',
+    toRow: e => ({ id: e.id, name: e.name, amount: e.amount || 0, date: e.date || null, note: e.note || '' }),
+    fromRow: r => ({ id: r.id, name: r.name, amount: Number(r.amount) || 0, date: r.date, note: r.note || '' }) },
+};
+
+// Tracks which row IDs this device last knew to exist server-side, per
+// table, so a save can tell Supabase "delete anything that used to be here
+// and isn't in my local array any more" without ever wiping rows another
+// device added in the meantime (those never entered this set, so they're
+// never touched).
+let lastSyncedIds = {};
+function idOf(key, row){ return key === 'clients' ? row.name : row.id; }
+
+async function fetchTable(key){
+  const m = TABLE_MAP[key];
+  const { data, error } = await sb.from(m.table).select('*');
+  if(error){ console.error('Supabase fetch failed', key, error); return null; }
+  return data.map(m.fromRow);
 }
-function mergeByKey(local, remote, key){
-  const localKeys = new Set(local.map(x=>x[key]));
-  const merged = local.slice();
-  remote.forEach(r=>{ if(r[key] && !localKeys.has(r[key])) merged.push(r); });
-  return merged;
+async function fetchSettingsRow(){
+  const { data, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
+  if(error){ console.error('Supabase settings fetch failed', error); return null; }
+  return { startingBalance: Number(data && data.starting_balance) || 0, rewardThresholds: (data && data.reward_thresholds) || null };
 }
 
-async function syncPush(){
-  if(!syncUrl) return false;
-  try{
-    // Safety net: before overwriting the Sheet, grab whatever's actually
-    // there right now and fold in anything this device doesn't have yet
-    // (e.g. invoices another device added since this one last synced).
-    // Without this, a device that's been idle for a while could push a
-    // stale snapshot and silently erase newer work from other devices.
-    let mergedInNewData = false;
-    try{
-      const bustCache = syncUrl + (syncUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-      const res = await fetch(bustCache, { cache:'no-store' });
-      const data = await res.json();
-      if(data && data.success){
-        const beforeCounts = state.invoices.length + state.products.length + state.clients.length + state.stockEntries.length + state.studioReports.length + state.fixedExpenses.length + state.expenses.length;
-        state.invoices = mergeById(state.invoices, data.invoices || []);
-        state.products = mergeById(state.products, data.products || []);
-        state.clients = mergeByKey(state.clients, data.clients || [], 'name');
-        state.stockEntries = mergeById(state.stockEntries, data.stockEntries || []);
-        state.studioReports = mergeById(state.studioReports, data.studioReports || []);
-        state.fixedExpenses = mergeById(state.fixedExpenses, data.fixedExpenses || []);
-        state.expenses = mergeById(state.expenses, data.expenses || []);
-        const afterCounts = state.invoices.length + state.products.length + state.clients.length + state.stockEntries.length + state.studioReports.length + state.fixedExpenses.length + state.expenses.length;
-        mergedInNewData = afterCounts !== beforeCounts;
-      }
-    }catch(e){ console.error('pre-push merge failed, pushing local state as-is', e); }
-
-    await fetch(syncUrl, {
-      method:'POST',
-      cache: 'no-store',
-      headers:{ 'Content-Type':'text/plain;charset=utf-8' }, // avoids a CORS preflight to Apps Script
-      body: JSON.stringify({ products: state.products, invoices: state.invoices, clients: state.clients, stockEntries: state.stockEntries, studioReports: state.studioReports, fixedExpenses: state.fixedExpenses, expenses: state.expenses, startingBalance: state.startingBalance, rewardThresholds: state.rewardThresholds })
-    });
-    if(mergedInNewData && isSafeToSync()) renderAll();
-    return true;
-  }catch(e){ console.error('sync push failed', e); return false; }
+// One row's worth of change (add/edit/delete) already happened locally when
+// this runs — it upserts the current array, then deletes whatever dropped
+// out of it since the last successful sync of this table.
+async function syncTable(key){
+  const m = TABLE_MAP[key];
+  const localArray = state[key];
+  const currentIds = new Set(localArray.map(x => idOf(key, x)));
+  if(localArray.length){
+    const rows = localArray.map(m.toRow);
+    const { error } = await sb.from(m.table).upsert(rows, { onConflict: m.idField });
+    if(error) console.error('Supabase upsert failed', key, error);
+  }
+  const known = lastSyncedIds[key] || new Set();
+  const removedIds = [...known].filter(id => !currentIds.has(id));
+  if(removedIds.length){
+    const { error } = await sb.from(m.table).delete().in(m.idField, removedIds);
+    if(error) console.error('Supabase delete failed', key, error);
+  }
+  lastSyncedIds[key] = currentIds;
+}
+async function syncSettings(){
+  const { error } = await sb.from('settings').upsert({ id: 1, starting_balance: state.startingBalance || 0, reward_thresholds: state.rewardThresholds || null });
+  if(error) console.error('Supabase settings upsert failed', error);
 }
 
 let lastScrollTime = 0;
@@ -1699,103 +1689,172 @@ function isSafeToSync(){
   return true;
 }
 
-async function backgroundSync(showStatus){
-  if(!syncUrl) return;
-  // Queued rather than run directly: if a save's push is still in flight,
-  // this pull now waits its turn instead of racing it (see syncQueue above).
-  await queueSync(async ()=>{
-    // Re-check safety now that it's actually our turn — a modal may have
-    // opened/closed, or scrolling may have started, while this was queued.
-    if(!isSafeToSync()) return;
-    isSyncing = true;
-    if(showStatus) updateSyncLabel('Syncing…');
-    const ok = await syncPull();
-    if(ok){ renderAll(); updateSyncLabel(showStatus ? 'Synced just now' : 'Kong Tattoo Care'); }
-    else updateSyncLabel('Sync failed — check connection');
-    if(showStatus) setTimeout(()=>{ if(syncUrl) updateSyncLabel('Kong Tattoo Care'); }, 2500);
-    isSyncing = false;
+// ---- realtime: another device's change lands here within ~a second ----
+let realtimeRefreshTimer = null;
+let pendingRefreshKeys = new Set();
+function queueRealtimeRefresh(key){
+  pendingRefreshKeys.add(key);
+  if(!realtimeRefreshTimer) realtimeRefreshTimer = setTimeout(runRealtimeRefresh, 400);
+}
+async function runRealtimeRefresh(){
+  realtimeRefreshTimer = null;
+  if(!isSafeToSync()){
+    // Don't drop the pending keys — a modal is open or the user is typing;
+    // just try again shortly without losing track of what changed.
+    realtimeRefreshTimer = setTimeout(runRealtimeRefresh, 2000);
+    return;
+  }
+  if(isSyncing){ realtimeRefreshTimer = setTimeout(runRealtimeRefresh, 1000); return; }
+  isSyncing = true;
+  const keysToRefresh = [...pendingRefreshKeys];
+  pendingRefreshKeys.clear();
+  let changed = false;
+  for(const key of keysToRefresh){
+    if(key === 'settings'){
+      const s = await fetchSettingsRow();
+      if(s){ state.startingBalance = s.startingBalance; state.rewardThresholds = s.rewardThresholds; changed = true; }
+    } else {
+      const rows = await fetchTable(key);
+      if(rows !== null){
+        state[key] = rows;
+        lastSyncedIds[key] = new Set(rows.map(r => idOf(key, r)));
+        changed = true;
+      }
+    }
+  }
+  isSyncing = false;
+  if(changed){ renderAll(); updateSyncLabel('Kong Tattoo Care · Synced'); }
+}
+function setupRealtime(){
+  Object.keys(TABLE_MAP).forEach(key=>{
+    const m = TABLE_MAP[key];
+    sb.channel('kong-'+m.table)
+      .on('postgres_changes', { event: '*', schema: 'public', table: m.table }, ()=> queueRealtimeRefresh(key))
+      .subscribe();
   });
+  sb.channel('kong-settings')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, ()=> queueRealtimeRefresh('settings'))
+    .subscribe();
+}
+// Safety net in case a realtime event is ever missed (a brief websocket
+// drop, say) — a full refresh every 30s and whenever the tab regains focus,
+// same idea as the old 20s poll but now just a plain read with nothing to
+// race against, since saves are per-row upserts rather than whole-state pushes.
+function fullRefresh(){
+  Object.keys(TABLE_MAP).forEach(k => pendingRefreshKeys.add(k));
+  pendingRefreshKeys.add('settings');
+  if(!realtimeRefreshTimer) realtimeRefreshTimer = setTimeout(runRealtimeRefresh, 50);
 }
 
-const DEFAULT_FIXED_EXPENSES = [
-  { id: 'fx1', name: 'PRIMO Marketing Service', amount: 0 },
-  { id: 'fx2', name: 'Accountant Fee', amount: 0 },
-  { id: 'fx3', name: 'Tony - Petrol Fee', amount: 0 },
-];
+// One-time self-heal: if Supabase comes back with nothing in it (the state
+// it's in until this dashboard's real data is copied over), that almost
+// certainly means "not migrated yet", not "the business genuinely has zero
+// invoices, clients and products". Rather than trust that emptiness and show
+// a blank dashboard, pull the real data straight from the Google Sheet
+// (nothing in this file writes to it any more, so it's still fully intact)
+// and push it into Supabase before rendering anything. Once real rows exist
+// in Supabase this never fires again — normal loads take the branch above.
+async function migrateFromSheetIfSupabaseEmpty(){
+  const looksEmpty = state.invoices.length===0 && state.products.length===0 && state.clients.length===0;
+  if(!looksEmpty) return false;
+  try{
+    const res = await fetch(DRIVE_SYNC_URL + (DRIVE_SYNC_URL.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache:'no-store' });
+    const data = await res.json();
+    if(!data || !data.success) return false;
+    const sheetHasRealData = (data.invoices||[]).length>0 || (data.products||[]).length>0 || (data.clients||[]).length>0;
+    if(!sheetHasRealData) return false; // Sheet is also genuinely empty — nothing to recover
+    state.products = data.products || [];
+    state.invoices = data.invoices || [];
+    state.clients = data.clients || [];
+    state.stockEntries = data.stockEntries || [];
+    state.studioReports = data.studioReports || [];
+    state.fixedExpenses = data.fixedExpenses || [];
+    state.expenses = data.expenses || [];
+    state.startingBalance = data.startingBalance || 0;
+    state.rewardThresholds = data.rewardThresholds || null;
+    updateSyncLabel('Recovering your data from the Sheet…');
+    await Promise.all(Object.keys(TABLE_MAP).map(key => syncTable(key)));
+    await syncSettings();
+    await Promise.all(Object.keys(STORAGE_KEYS).map(key =>
+      window.storage.set(STORAGE_KEYS[key], JSON.stringify(state[key]), false).catch(()=>{})
+    ));
+    await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false).catch(()=>{});
+    await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false).catch(()=>{});
+    return true;
+  }catch(e){ console.error('Sheet recovery failed', e); return false; }
+}
 
 async function loadState(){
-  // If sync is connected, pull the real shared data FIRST — this has to
-  // happen before any local fallback/seed logic runs below, otherwise a
-  // brand-new device with no local cache would fall back to blank seed
-  // data and then push it, overwriting everything already in the Sheet.
-  if(syncUrl){
-    updateSyncLabel('Connecting to Sheet…');
-    const ok = await syncPull();
-    if(ok){
-      updateSyncLabel('Kong Tattoo Care · Synced');
-      return true;
+  updateSyncLabel('Connecting to Supabase…');
+  let anyFailure = false;
+  await Promise.all(Object.keys(TABLE_MAP).map(async key=>{
+    const rows = await fetchTable(key);
+    if(rows === null){
+      anyFailure = true;
+      try{ const c = await window.storage.get(STORAGE_KEYS[key], false); state[key] = c && c.value ? JSON.parse(c.value) : seedFor(key); }
+      catch(e){ state[key] = seedFor(key); }
+    } else {
+      state[key] = rows;
+      lastSyncedIds[key] = new Set(rows.map(r => idOf(key, r)));
+      try{ await window.storage.set(STORAGE_KEYS[key], JSON.stringify(rows), false); }catch(e){}
     }
-    updateSyncLabel('Sync failed — check connection');
-    // fall through to local cache / seed data as a last resort only
+  }));
+  await migrateFromSheetIfSupabaseEmpty();
+  const settings = await fetchSettingsRow();
+  if(settings){
+    state.startingBalance = settings.startingBalance;
+    state.rewardThresholds = settings.rewardThresholds;
+    try{
+      await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false);
+      await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false);
+    }catch(e){}
+  } else {
+    anyFailure = true;
+    try{ const s = await window.storage.get('kong-startingbalance-2026', false); state.startingBalance = s && s.value ? JSON.parse(s.value) : 0; }
+    catch(e){ state.startingBalance = 0; }
+    try{ const rt = await window.storage.get('kong-rewardthresholds-2026', false); state.rewardThresholds = rt && rt.value ? JSON.parse(rt.value) : null; }
+    catch(e){ state.rewardThresholds = null; }
   }
-
-  // Local cache / first-ever-run fallback. Loading must never itself save —
-  // saving only ever happens as the direct result of an explicit edit.
-  try{ const p = await window.storage.get('kong-products-2026', false); state.products = p && p.value ? JSON.parse(p.value) : seedProducts; }
-  catch(e){ state.products = seedProducts; }
-  try{ const i = await window.storage.get('kong-invoices-2026', false); state.invoices = i && i.value ? JSON.parse(i.value) : seedInvoices(); }
-  catch(e){ state.invoices = seedInvoices(); }
-  try{ const c = await window.storage.get('kong-clients-2026', false); state.clients = c && c.value ? JSON.parse(c.value) : []; }
-  catch(e){ state.clients = []; }
-  try{ const s = await window.storage.get('kong-stock-2026', false); state.stockEntries = s && s.value ? JSON.parse(s.value) : []; }
-  catch(e){ state.stockEntries = []; }
-  try{ const r = await window.storage.get('kong-reports-2026', false); state.studioReports = r && r.value ? JSON.parse(r.value) : []; }
-  catch(e){ state.studioReports = []; }
-  try{ const f = await window.storage.get('kong-fixedexpenses-2026', false); state.fixedExpenses = f && f.value ? JSON.parse(f.value) : DEFAULT_FIXED_EXPENSES.slice(); }
-  catch(e){ state.fixedExpenses = DEFAULT_FIXED_EXPENSES.slice(); }
-  try{ const ex = await window.storage.get('kong-expenses-2026', false); state.expenses = ex && ex.value ? JSON.parse(ex.value) : []; }
-  catch(e){ state.expenses = []; }
-  try{ const sb = await window.storage.get('kong-startingbalance-2026', false); state.startingBalance = sb && sb.value ? JSON.parse(sb.value) : 0; }
-  catch(e){ state.startingBalance = 0; }
-  try{ const rt = await window.storage.get('kong-rewardthresholds-2026', false); state.rewardThresholds = rt && rt.value ? JSON.parse(rt.value) : null; }
-  catch(e){ state.rewardThresholds = null; }
-  return false;
+  updateSyncLabel(anyFailure ? 'Sync failed — check connection' : 'Kong Tattoo Care · Synced');
+  setupRealtime();
+  return !anyFailure;
 }
+
 async function saveProducts(){
   try{ await window.storage.set('kong-products-2026', JSON.stringify(state.products), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('products');
 }
 async function saveInvoices(){
   try{ await window.storage.set('kong-invoices-2026', JSON.stringify(state.invoices), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('invoices');
 }
 async function saveClients(){
   try{ await window.storage.set('kong-clients-2026', JSON.stringify(state.clients), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('clients');
 }
 async function saveStockEntries(){
   try{ await window.storage.set('kong-stock-2026', JSON.stringify(state.stockEntries), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('stockEntries');
 }
 async function saveStudioReports(){
   try{ await window.storage.set('kong-reports-2026', JSON.stringify(state.studioReports), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('studioReports');
 }
 async function saveFixedExpenses(){
   try{ await window.storage.set('kong-fixedexpenses-2026', JSON.stringify(state.fixedExpenses), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('fixedExpenses');
 }
 async function saveExpenses(){
   try{ await window.storage.set('kong-expenses-2026', JSON.stringify(state.expenses), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncTable('expenses');
 }
 async function saveStartingBalance(){
   try{ await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncSettings();
 }
 async function saveRewardThresholds(){
   try{ await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false); }catch(e){ console.error('save failed', e); }
-  queueSync(syncPush);
+  syncSettings();
 }
 function clientByName(name){ return state.clients.find(c=>c.name===name); }
 function ensureClientExists(name){
@@ -1806,36 +1865,16 @@ function ensureClientExists(name){
 // ---------- settings modal ----------
 const settingsModal = document.getElementById('settingsModalOverlay');
 function refreshSettingsStatus(){
-  document.getElementById('syncStatusText').textContent = syncUrl
-    ? 'Connected. Every device using this URL shares the same data.'
-    : 'Not connected — data is only saved on this device.';
-  document.getElementById('syncUrlInput').value = syncUrl;
+  document.getElementById('syncStatusText').textContent = 'Connected to Supabase — every device updates live, no waiting.';
 }
 document.getElementById('settingsBtn').addEventListener('click', ()=>{ refreshSettingsStatus(); settingsModal.classList.add('show'); });
 document.getElementById('settingsCancel').addEventListener('click', ()=> settingsModal.classList.remove('show'));
 settingsModal.addEventListener('click', (e)=>{ if(e.target===settingsModal) settingsModal.classList.remove('show'); });
-document.getElementById('syncConnect').addEventListener('click', async ()=>{
-  const url = document.getElementById('syncUrlInput').value.trim();
-  if(!url) return;
-  syncUrl = url;
-  localStorage.setItem('kong-sync-url', url);
-  settingsModal.classList.remove('show');
-  updateSyncLabel('Connecting to Sheet…');
-  const ok = await syncPull();
-  if(ok){ renderAll(); updateSyncLabel('Kong Tattoo Care · Synced'); }
-  else updateSyncLabel('Sync failed — check the URL and try again');
-});
-document.getElementById('syncDisconnect').addEventListener('click', ()=>{
-  syncUrl = '';
-  localStorage.setItem('kong-sync-url', '__disconnected__');
-  settingsModal.classList.remove('show');
-  updateSyncLabel('Kong Tattoo Care');
-});
-document.getElementById('syncNowBtn').addEventListener('click', ()=> backgroundSync(true));
+document.getElementById('syncNowBtn').addEventListener('click', ()=>{ updateSyncLabel('Syncing…'); fullRefresh(); });
 const isPortalMode = new URLSearchParams(window.location.search).has('portal');
 if(!isPortalMode){
-  setInterval(()=> backgroundSync(false), 20000);
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) backgroundSync(false); });
+  setInterval(fullRefresh, 30000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) fullRefresh(); });
 }
 
 function productById(id){ return state.products.find(p=>p.id===id); }
@@ -3463,7 +3502,6 @@ function renderDeliveryNotePreview(inv, wrap){
 
 // ---------- auto-save paid invoices to Drive (Month / Studio / invoice.pdf) ----------
 async function saveInvoicePdfToDrive(inv){
-  if(!syncUrl){ console.warn('Drive auto-save skipped — no Sheet sync configured.'); return; }
   const area = document.getElementById('genPrintArea');
   if(!area){ console.warn('Drive auto-save skipped — invoice preview not found.'); return; }
 
@@ -3500,7 +3538,7 @@ async function saveInvoicePdfToDrive(inv){
     const monthLbl = monthLabel(monthKey(inv.date));
     const filename = (inv.invoiceNo || inv.id) + '.pdf';
 
-    const res = await fetch(syncUrl, {
+    const res = await fetch(DRIVE_SYNC_URL, {
       method:'POST', cache:'no-store',
       headers:{ 'Content-Type':'text/plain;charset=utf-8' },
       body: JSON.stringify({ action:'uploadInvoicePdf', month: monthLbl, studio: inv.client, filename, pdfBase64 })
@@ -4123,18 +4161,25 @@ async function initPortalMode(token){
   document.getElementById('portalMark').src = PRIMO_MARK;
 
   let portalProducts = [];
+  let portalStudioName = '';
   try{
-    const url = syncUrl + (syncUrl.includes('?') ? '&' : '?') + 'action=portal&token=' + encodeURIComponent(token) + '&t=' + Date.now();
-    const res = await fetch(url, { cache:'no-store' });
-    const data = await res.json();
+    // Scoped reads straight against Supabase: only the columns actually
+    // needed are requested (name for the client match, id+name for
+    // products — never price, address, tax id, etc.), so a studio's link
+    // still can't see anything beyond what the old Apps Script portal
+    // endpoint used to hand back.
+    const { data: clientRows, error: cErr } = await sb.from('clients').select('name').eq('portal_token', token).limit(1);
     document.getElementById('portalLoading').style.display = 'none';
-    if(!data.success){
+    if(cErr || !clientRows || !clientRows.length){
       document.getElementById('portalError').style.display = 'block';
-      document.getElementById('portalError').textContent = data.error || 'This link is not valid — please ask Kong Tattoo Care for a new one.';
+      document.getElementById('portalError').textContent = 'This link is not valid — please ask Kong Tattoo Care for a new one.';
       return;
     }
-    portalProducts = data.products || [];
-    document.getElementById('portalStudioName').textContent = data.studioName;
+    portalStudioName = clientRows[0].name;
+    const { data: productRows, error: pErr } = await sb.from('products').select('id,name');
+    if(pErr) throw pErr;
+    portalProducts = productRows || [];
+    document.getElementById('portalStudioName').textContent = portalStudioName;
     document.getElementById('portalProductRows').innerHTML = portalProducts.map(p=>`
       <div class="stock-product-row">
         <div class="spr-name">${escapeHtml(p.name)}</div>
@@ -4158,17 +4203,16 @@ async function initPortalMode(token){
     const btn = document.getElementById('portalSubmitBtn');
     btn.disabled = true; btn.textContent = 'Submitting…';
     try{
-      const res = await fetch(syncUrl, {
-        method:'POST', cache:'no-store',
-        headers:{ 'Content-Type':'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action:'studioReport', token, items, note: document.getElementById('portalNote').value.trim() })
+      const { error } = await sb.from('studio_reports').insert({
+        id: 'rpt' + Date.now() + Math.random().toString(36).slice(2,8),
+        client: portalStudioName, date: todayISO(), items,
+        note: document.getElementById('portalNote').value.trim(), status: 'pending'
       });
-      const data = await res.json();
-      if(data.success){
+      if(!error){
         document.getElementById('portalForm').style.display = 'none';
         document.getElementById('portalSuccess').style.display = 'block';
       } else {
-        alert(data.error || 'Something went wrong — please try again.');
+        alert('Something went wrong — please try again.');
         btn.disabled = false; btn.textContent = 'Submit report';
       }
     }catch(e){
@@ -4197,13 +4241,13 @@ if(portalTokenFromUrl){
       const syncSucceeded = await loadState();
 
       // Migration: backfill any May/June invoices from DATA MASTER TEST that
-      // aren't in this browser's (or Sheet's) saved data yet. Matched by
+      // aren't in this browser's (or Supabase's) saved data yet. Matched by
       // invoiceNo so it never duplicates or touches anything already there.
       // Only runs if we're confident state.invoices reflects the real current
-      // data (sync succeeded, or there's no sync configured at all) — never
-      // when a sync pull just failed, since state would then be a stale local
-      // fallback and pushing it could overwrite real data on the Sheet.
-      if(syncSucceeded || !syncUrl){
+      // data (sync succeeded) — never when a pull just failed, since state
+      // would then be a stale local fallback and pushing it could overwrite
+      // real data in Supabase.
+      if(syncSucceeded){
         const expected = seedInvoices().filter(inv => inv.date < '2026-07-01');
         const existingNos = new Set(state.invoices.map(inv => inv.invoiceNo));
         let added = false;
