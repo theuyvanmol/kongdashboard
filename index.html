@@ -1581,6 +1581,26 @@ if(savedSyncUrl === OLD_BROKEN_URL){
 let syncUrl = savedSyncUrl === '__disconnected__' ? '' : (savedSyncUrl || DEFAULT_SYNC_URL);
 let isSyncing = false;
 
+// ---------- sync queue ----------
+// Every save (adding/editing an invoice, expense, etc.) fires a push to the
+// Sheet in the background, and a 20-second timer independently fires a pull
+// to pick up changes from other devices. Both touch the same `state` object,
+// and a push involves its own network round trip (fetch current sheet, merge,
+// then POST) that can take a couple of seconds. If the 20s pull happened to
+// land while a push was still in flight, the pull would grab the OLD sheet
+// data (without whatever was just saved) and stomp over the local screen with
+// it — the invoice you just entered would disappear and you'd have to redo it.
+// Routing every push and pull through one FIFO queue guarantees they never
+// run at the same time: whichever was requested first finishes completely
+// (including reaching the Sheet) before the next one starts, so a pull can
+// never see stale data and overwrite a save that just happened.
+let syncQueue = Promise.resolve();
+function queueSync(task){
+  const run = async () => { try{ await task(); }catch(e){ console.error('sync task failed', e); } };
+  syncQueue = syncQueue.then(run, run);
+  return syncQueue;
+}
+
 function updateSyncLabel(text){
   const label = document.getElementById('syncStatusLabel');
   if(label) label.textContent = text;
@@ -1680,14 +1700,21 @@ function isSafeToSync(){
 }
 
 async function backgroundSync(showStatus){
-  if(!syncUrl || isSyncing || !isSafeToSync()) return;
-  isSyncing = true;
-  if(showStatus) updateSyncLabel('Syncing…');
-  const ok = await syncPull();
-  if(ok){ renderAll(); updateSyncLabel(showStatus ? 'Synced just now' : 'Kong Tattoo Care'); }
-  else updateSyncLabel('Sync failed — check connection');
-  if(showStatus) setTimeout(()=>{ if(syncUrl) updateSyncLabel('Kong Tattoo Care'); }, 2500);
-  isSyncing = false;
+  if(!syncUrl) return;
+  // Queued rather than run directly: if a save's push is still in flight,
+  // this pull now waits its turn instead of racing it (see syncQueue above).
+  await queueSync(async ()=>{
+    // Re-check safety now that it's actually our turn — a modal may have
+    // opened/closed, or scrolling may have started, while this was queued.
+    if(!isSafeToSync()) return;
+    isSyncing = true;
+    if(showStatus) updateSyncLabel('Syncing…');
+    const ok = await syncPull();
+    if(ok){ renderAll(); updateSyncLabel(showStatus ? 'Synced just now' : 'Kong Tattoo Care'); }
+    else updateSyncLabel('Sync failed — check connection');
+    if(showStatus) setTimeout(()=>{ if(syncUrl) updateSyncLabel('Kong Tattoo Care'); }, 2500);
+    isSyncing = false;
+  });
 }
 
 const DEFAULT_FIXED_EXPENSES = [
@@ -1736,39 +1763,39 @@ async function loadState(){
 }
 async function saveProducts(){
   try{ await window.storage.set('kong-products-2026', JSON.stringify(state.products), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveInvoices(){
   try{ await window.storage.set('kong-invoices-2026', JSON.stringify(state.invoices), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveClients(){
   try{ await window.storage.set('kong-clients-2026', JSON.stringify(state.clients), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveStockEntries(){
   try{ await window.storage.set('kong-stock-2026', JSON.stringify(state.stockEntries), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveStudioReports(){
   try{ await window.storage.set('kong-reports-2026', JSON.stringify(state.studioReports), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveFixedExpenses(){
   try{ await window.storage.set('kong-fixedexpenses-2026', JSON.stringify(state.fixedExpenses), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveExpenses(){
   try{ await window.storage.set('kong-expenses-2026', JSON.stringify(state.expenses), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveStartingBalance(){
   try{ await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 async function saveRewardThresholds(){
   try{ await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false); }catch(e){ console.error('save failed', e); }
-  syncPush();
+  queueSync(syncPush);
 }
 function clientByName(name){ return state.clients.find(c=>c.name===name); }
 function ensureClientExists(name){
