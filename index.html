@@ -563,6 +563,8 @@
 </head>
 <body>
 
+<div id="diagBanner" style="display:none; position:fixed; top:0; left:0; right:0; z-index:99999; background:#ff8478; color:#1a1a2e; padding:10px 14px; font-size:12px; font-family:monospace; line-height:1.5; word-break:break-word;" onclick="navigator.clipboard && navigator.clipboard.writeText(this.textContent).then(()=>{ this.style.opacity='0.6'; setTimeout(()=>this.style.opacity='1', 300); })"></div>
+
 <div class="aurora">
   <div class="blob b1"></div>
   <div class="blob b2"></div>
@@ -1641,15 +1643,26 @@ const TABLE_MAP = {
 let lastSyncedIds = {};
 function idOf(key, row){ return key === 'clients' ? row.name : row.id; }
 
+let lastFetchErrors = {}; // table key -> plain-language error, so a failure can be shown on screen, not just console
 async function fetchTable(key){
   const m = TABLE_MAP[key];
   const { data, error } = await sb.from(m.table).select('*');
-  if(error){ console.error('Supabase fetch failed', key, error); return null; }
+  if(error){
+    console.error('Supabase fetch failed', key, error);
+    lastFetchErrors[key] = (error.message || String(error)) + (error.code ? ' (code '+error.code+')' : '');
+    return null;
+  }
+  delete lastFetchErrors[key];
   return data.map(m.fromRow);
 }
 async function fetchSettingsRow(){
   const { data, error } = await sb.from('settings').select('*').eq('id', 1).maybeSingle();
-  if(error){ console.error('Supabase settings fetch failed', error); return null; }
+  if(error){
+    console.error('Supabase settings fetch failed', error);
+    lastFetchErrors['settings'] = (error.message || String(error)) + (error.code ? ' (code '+error.code+')' : '');
+    return null;
+  }
+  delete lastFetchErrors['settings'];
   return { startingBalance: Number(data && data.starting_balance) || 0, rewardThresholds: (data && data.reward_thresholds) || null };
 }
 
@@ -1660,10 +1673,17 @@ async function syncTable(key){
   const m = TABLE_MAP[key];
   const localArray = state[key];
   const currentIds = new Set(localArray.map(x => idOf(key, x)));
+  let upsertOk = true;
   if(localArray.length){
     const rows = localArray.map(m.toRow);
     const { error } = await sb.from(m.table).upsert(rows, { onConflict: m.idField });
-    if(error) console.error('Supabase upsert failed', key, error);
+    if(error){
+      console.error('Supabase upsert failed', key, error);
+      lastFetchErrors[key] = 'UPSERT of '+rows.length+' row(s) failed: ' + (error.message || String(error)) + (error.details ? ' — ' + error.details : '') + (error.hint ? ' (hint: '+error.hint+')' : '') + (error.code ? ' [code '+error.code+']' : '');
+      upsertOk = false;
+    } else {
+      delete lastFetchErrors[key];
+    }
   }
   const known = lastSyncedIds[key] || new Set();
   const removedIds = [...known].filter(id => !currentIds.has(id));
@@ -1671,7 +1691,12 @@ async function syncTable(key){
     const { error } = await sb.from(m.table).delete().in(m.idField, removedIds);
     if(error) console.error('Supabase delete failed', key, error);
   }
-  lastSyncedIds[key] = currentIds;
+  // Only mark these ids as "known synced" if the upsert actually succeeded —
+  // otherwise a failed push would make Supabase's still-missing rows look
+  // like they were already accounted for, and a later save could then
+  // "delete" ids that were never really synced in the first place.
+  if(upsertOk) lastSyncedIds[key] = currentIds;
+  return upsertOk;
 }
 async function syncSettings(){
   const { error } = await sb.from('settings').upsert({ id: 1, starting_balance: state.startingBalance || 0, reward_thresholds: state.rewardThresholds || null });
@@ -1754,15 +1779,20 @@ function fullRefresh(){
 // (nothing in this file writes to it any more, so it's still fully intact)
 // and push it into Supabase before rendering anything. Once real rows exist
 // in Supabase this never fires again — normal loads take the branch above.
+// Returns a plain-language diagnostic object instead of just true/false, so
+// a visible on-screen banner (see loadState below) can tell you exactly what
+// happened even when you're on your phone with no way to open dev tools.
 async function migrateFromSheetIfSupabaseEmpty(){
   const looksEmpty = state.invoices.length===0 && state.products.length===0 && state.clients.length===0;
-  if(!looksEmpty) return false;
+  if(!looksEmpty) return { attempted:false, recovered:false, detail:'Supabase already had data — recovery not needed.' };
   try{
     const res = await fetch(DRIVE_SYNC_URL + (DRIVE_SYNC_URL.includes('?') ? '&' : '?') + 't=' + Date.now(), { cache:'no-store' });
+    if(!res.ok) return { attempted:true, recovered:false, detail:'Sheet request failed with HTTP '+res.status+'.' };
     const data = await res.json();
-    if(!data || !data.success) return false;
+    if(!data || !data.success) return { attempted:true, recovered:false, detail:'Sheet responded but with success=false: '+(data && data.error ? data.error : 'no error message given')+'.' };
+    const sheetCounts = 'Sheet has: invoices='+(data.invoices||[]).length+' products='+(data.products||[]).length+' clients='+(data.clients||[]).length+'.';
     const sheetHasRealData = (data.invoices||[]).length>0 || (data.products||[]).length>0 || (data.clients||[]).length>0;
-    if(!sheetHasRealData) return false; // Sheet is also genuinely empty — nothing to recover
+    if(!sheetHasRealData) return { attempted:true, recovered:false, detail:'Sheet itself is also empty — nothing to recover. '+sheetCounts };
     state.products = data.products || [];
     state.invoices = data.invoices || [];
     state.clients = data.clients || [];
@@ -1773,15 +1803,30 @@ async function migrateFromSheetIfSupabaseEmpty(){
     state.startingBalance = data.startingBalance || 0;
     state.rewardThresholds = data.rewardThresholds || null;
     updateSyncLabel('Recovering your data from the Sheet…');
-    await Promise.all(Object.keys(TABLE_MAP).map(key => syncTable(key)));
+    const pushResults = await Promise.all(Object.keys(TABLE_MAP).map(async key => ({ key, ok: await syncTable(key) })));
     await syncSettings();
     await Promise.all(Object.keys(STORAGE_KEYS).map(key =>
       window.storage.set(STORAGE_KEYS[key], JSON.stringify(state[key]), false).catch(()=>{})
     ));
     await window.storage.set('kong-startingbalance-2026', JSON.stringify(state.startingBalance), false).catch(()=>{});
     await window.storage.set('kong-rewardthresholds-2026', JSON.stringify(state.rewardThresholds), false).catch(()=>{});
-    return true;
-  }catch(e){ console.error('Sheet recovery failed', e); return false; }
+    const failedPushes = pushResults.filter(r=>!r.ok).map(r=>r.key);
+    if(failedPushes.length){
+      const errText = failedPushes.map(k=> k+': '+(lastFetchErrors[k]||'unknown error')).join(' || ');
+      return { attempted:true, recovered:false, detail:'Pulled the Sheet data ('+sheetCounts+') and it is showing on screen right now, but pushing it INTO Supabase failed for: ' + errText };
+    }
+    return { attempted:true, recovered:true, detail:'Recovered from Sheet and pushed into Supabase. '+sheetCounts };
+  }catch(e){
+    console.error('Sheet recovery failed', e);
+    return { attempted:true, recovered:false, detail:'Sheet request threw an error: '+(e && e.message ? e.message : String(e))+'.' };
+  }
+}
+
+function showDiagBanner(text){
+  const el = document.getElementById('diagBanner');
+  if(!el) return;
+  el.textContent = text;
+  el.style.display = 'block';
 }
 
 async function loadState(){
@@ -1799,7 +1844,7 @@ async function loadState(){
       try{ await window.storage.set(STORAGE_KEYS[key], JSON.stringify(rows), false); }catch(e){}
     }
   }));
-  await migrateFromSheetIfSupabaseEmpty();
+  const recovery = await migrateFromSheetIfSupabaseEmpty();
   const settings = await fetchSettingsRow();
   if(settings){
     state.startingBalance = settings.startingBalance;
@@ -1817,6 +1862,19 @@ async function loadState(){
   }
   updateSyncLabel(anyFailure ? 'Sync failed — check connection' : 'Kong Tattoo Care · Synced');
   setupRealtime();
+
+  // Visible, on-screen diagnostic (not just console) — this is what you
+  // should screenshot if something still looks wrong. It only shows up when
+  // there's actually something to report; a normal, healthy load never
+  // displays it.
+  const stillLooksEmpty = state.invoices.length===0 && state.products.length===0 && state.clients.length===0;
+  if(anyFailure || stillLooksEmpty || (recovery.attempted && !recovery.recovered)){
+    const errorLines = Object.keys(lastFetchErrors).length
+      ? 'Supabase errors — ' + Object.entries(lastFetchErrors).map(([k,v])=> k+': '+v).join(' | ')
+      : 'No Supabase fetch errors reported.';
+    const counts = 'Loaded — products='+state.products.length+' invoices='+state.invoices.length+' clients='+state.clients.length+'.';
+    showDiagBanner('DIAGNOSTIC — ' + counts + ' ' + errorLines + ' Recovery: ' + recovery.detail);
+  }
   return !anyFailure;
 }
 
