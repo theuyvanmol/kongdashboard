@@ -2649,7 +2649,7 @@ async function loadMarketingMetrics(){
     marketingState.metrics = marketingState.metrics || [];
   }
   try{
-    const { data, error } = await sb.from('instagram_posts').select('*').order('date', { ascending: false });
+    const { data, error } = await sb.from('instagram_posts').select('*').order('post_date', { ascending: false });
     if(error) throw error;
     marketingState.posts = data || [];
   }catch(e){
@@ -2842,7 +2842,7 @@ function renderMarketing(){
   renderTrendKpi('mIgAvgViewed', 'mIgAvgViewedSub', 'mIgAvgViewedTrend', avgViewedTrend);
   renderTrendKpi('mIgEngagement', 'mIgEngagementSub', 'mIgEngagementTrend', engagementTrend, { suffix: '%' });
 
-  const postScore = p => Number(p.engagement ?? p.likes ?? p.reach ?? 0) || 0;
+  const postScore = p => (Number(p.like_count ?? p.likes ?? 0) || 0) + (Number(p.comments_count ?? p.comments ?? 0) || 0);
   const topPosts = (marketingState.posts || [])
     .slice()
     .sort((a,b) => postScore(b) - postScore(a))
