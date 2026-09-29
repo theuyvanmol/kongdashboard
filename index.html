@@ -147,6 +147,23 @@
   .kpi.mint .val{ color:var(--mint); }
   .kpi.coral .val{ color:var(--coral); }
 
+  /* ---------- app sections (Dashboard / Marketing / Task list) ---------- */
+  .app-section{ display:none; }
+  .app-section.active{ display:block; }
+  .mview{ display:none; }
+  .mview.active{ display:block; }
+  .marketing-tabs{ margin-bottom:18px; }
+  .period-toggle{ padding:3px; }
+  .period-toggle .tab{ padding:6px 12px; font-size:11.5px; }
+
+  /* ---------- KPI value + trend badge ---------- */
+  .val-row{ display:flex; align-items:baseline; gap:8px; margin-top:8px; flex-wrap:wrap; }
+  .val-row .val{ margin-top:0; }
+  .trend-badge{ font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:20px; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; }
+  .trend-badge.up{ background:rgba(63,232,192,0.15); color:var(--mint); }
+  .trend-badge.down{ background:rgba(255,132,120,0.15); color:var(--coral); }
+  .trend-badge.neutral{ background:rgba(255,255,255,0.08); color:var(--text-3); }
+
   .charts-grid{ display:grid; grid-template-columns:1.3fr 1fr; gap:12px; margin-bottom:18px; }
   .chart-card{ padding:18px 20px; }
   .chart-card h3{ font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-3); font-weight:700; margin:0 0 12px; }
@@ -655,38 +672,18 @@
       </button>
     </div>
 
-    <div class="tabs main-tabs sidebar-nav" id="mainTabs">
-      <button class="tab active" data-view="overview">
+    <div class="tabs sidebar-nav" id="sectionNav">
+      <button class="tab active" data-section="dashboard">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-        <span data-i18n="tabOverview">Overview</span>
+        <span>Dashboard</span>
       </button>
-      <button class="tab" data-view="invoices">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
-        <span data-i18n="tabInvoices">Invoices</span>
-      </button>
-      <button class="tab" data-view="stock">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-        <span data-i18n="tabStock">Stock</span>
-      </button>
-      <button class="tab" data-view="map">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span data-i18n="tabMap">Map</span>
-      </button>
-      <button class="tab" data-view="monthly">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        <span data-i18n="tabMonthly">Monthly</span>
-      </button>
-      <button class="tab" data-view="expenses">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 010-4h14v4"/><path d="M3 5v14a2 2 0 002 2h16v-5"/><path d="M18 12a2 2 0 000 4h4v-4z"/></svg>
-        <span data-i18n="tabExpenses">Expenses</span>
-      </button>
-      <button class="tab" data-view="marketing">
+      <button class="tab" data-section="marketing">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.2 5.2-3.5-3.5L4 15.7"/></svg>
-        <span data-i18n="tabMarketing">Marketing</span>
+        <span>Marketing</span>
       </button>
-      <button class="tab" data-view="generate">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        <span data-i18n="tabGenerate">Generate invoice</span>
+      <button class="tab" data-section="tasklist">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <span>Task list</span>
       </button>
     </div>
   </nav>
@@ -728,6 +725,18 @@
         <span data-i18n="btnAddInvoice">Add invoice</span>
       </button>
     </div>
+  </div>
+
+  <div class="app-section active" id="section-dashboard">
+
+  <div class="tabs main-tabs" id="mainTabs">
+    <button class="tab active" data-view="overview" data-i18n="tabOverview">Overview</button>
+    <button class="tab" data-view="invoices" data-i18n="tabInvoices">Invoices</button>
+    <button class="tab" data-view="stock" data-i18n="tabStock">Stock</button>
+    <button class="tab" data-view="map" data-i18n="tabMap">Map</button>
+    <button class="tab" data-view="monthly" data-i18n="tabMonthly">Monthly</button>
+    <button class="tab" data-view="expenses" data-i18n="tabExpenses">Expenses</button>
+    <button class="tab" data-view="generate" data-i18n="tabGenerate">Generate invoice</button>
   </div>
 
   <!-- ================= OVERVIEW ================= -->
@@ -1094,43 +1103,6 @@
     </div>
   </div>
 
-  <!-- ================= MARKETING ================= -->
-  <div id="marketingView" class="view">
-    <div class="section-head"><h2>Marketing</h2></div>
-    <div class="kpis" style="grid-template-columns:repeat(3,1fr);">
-      <div class="glass kpi mint">
-        <div class="lbl">Followers</div>
-        <div class="val num" id="mFollowers">—</div>
-        <div class="sub" id="mFollowersSub">Needs a Facebook Pages connection</div>
-      </div>
-      <div class="glass kpi">
-        <div class="lbl">Content performance</div>
-        <div class="val num" id="mContentPerf">0</div>
-        <div class="sub" id="mContentPerfSub">—</div>
-      </div>
-      <div class="glass kpi coral">
-        <div class="lbl">Engagement</div>
-        <div class="val num" id="mEngagement">0%</div>
-        <div class="sub" id="mEngagementSub">—</div>
-      </div>
-    </div>
-
-    <div class="section-head"><h2>Top performing content</h2></div>
-    <div class="glass chart-card"><div id="mTopContent"></div></div>
-
-    <div class="section-head"><h2>Performance timeline — by month</h2></div>
-    <div class="charts-grid">
-      <div class="glass chart-card">
-        <h3>Reach by month</h3>
-        <div id="mMonthlyReachChart"></div>
-      </div>
-      <div class="glass chart-card">
-        <h3>Engagement by month</h3>
-        <div id="mMonthlyEngagementChart"></div>
-      </div>
-    </div>
-  </div>
-
   <!-- ================= GENERATE INVOICE ================= -->
   <div id="generateView" class="view">
     <div class="gen-layout">
@@ -1158,6 +1130,117 @@
       <div class="gen-preview-wrap" id="genPreviewWrap">
         <div class="gen-empty">Add at least one invoice to generate a printable copy.</div>
       </div>
+    </div>
+  </div>
+
+  </div> <!-- /section-dashboard -->
+
+  <!-- ================= MARKETING SECTION ================= -->
+  <div class="app-section" id="section-marketing">
+    <div class="section-head">
+      <h2>Marketing</h2>
+      <div class="tabs period-toggle" id="marketingPeriodToggle">
+        <button class="tab active" data-period="day">Day</button>
+        <button class="tab" data-period="week">Week</button>
+        <button class="tab" data-period="month">Month</button>
+      </div>
+    </div>
+
+    <div class="tabs marketing-tabs" id="marketingTabs">
+      <button class="tab active" data-mview="overview">Overview</button>
+      <button class="tab" data-mview="instagram">Instagram</button>
+      <button class="tab" data-mview="website">Website</button>
+    </div>
+
+    <!-- ---- Marketing: Overview ---- -->
+    <div id="marketingOverviewView" class="mview active">
+      <div class="kpis">
+        <div class="glass kpi mint">
+          <div class="lbl">Instagram followers</div>
+          <div class="val-row"><div class="val num" id="mOvIgFollowers">—</div><span class="trend-badge" id="mOvIgFollowersTrend"></span></div>
+          <div class="sub" id="mOvIgFollowersSub">Needs a Facebook Pages connection</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Page followers</div>
+          <div class="val-row"><div class="val num" id="mOvPageFollowers">—</div><span class="trend-badge" id="mOvPageFollowersTrend"></span></div>
+          <div class="sub" id="mOvPageFollowersSub">Needs a Facebook Pages connection</div>
+        </div>
+        <div class="glass kpi coral">
+          <div class="lbl">Engagement</div>
+          <div class="val-row"><div class="val num" id="mOvEngagement">0%</div><span class="trend-badge" id="mOvEngagementTrend"></span></div>
+          <div class="sub" id="mOvEngagementSub">—</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Website sessions</div>
+          <div class="val-row"><div class="val num" id="mOvSessions">0</div><span class="trend-badge" id="mOvSessionsTrend"></span></div>
+          <div class="sub" id="mOvSessionsSub">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- Marketing: Instagram ---- -->
+    <div id="marketingInstagramView" class="mview">
+      <div class="kpis" style="grid-template-columns:repeat(3,1fr);">
+        <div class="glass kpi mint">
+          <div class="lbl">Followers</div>
+          <div class="val-row"><div class="val num" id="mIgFollowers">—</div><span class="trend-badge" id="mIgFollowersTrend"></span></div>
+          <div class="sub" id="mIgFollowersSub">Needs a Facebook Pages connection</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Average content viewed</div>
+          <div class="val-row"><div class="val num" id="mIgAvgViewed">0</div><span class="trend-badge" id="mIgAvgViewedTrend"></span></div>
+          <div class="sub" id="mIgAvgViewedSub">—</div>
+        </div>
+        <div class="glass kpi coral">
+          <div class="lbl">Engagement</div>
+          <div class="val-row"><div class="val num" id="mIgEngagement">0%</div><span class="trend-badge" id="mIgEngagementTrend"></span></div>
+          <div class="sub" id="mIgEngagementSub">—</div>
+        </div>
+      </div>
+
+      <div class="section-head"><h2>Top performing content</h2></div>
+      <div class="glass chart-card"><div id="mIgTopContent"></div></div>
+
+      <div class="section-head"><h2>Performance timeline — by month</h2></div>
+      <div class="charts-grid">
+        <div class="glass chart-card">
+          <h3>Reach by month</h3>
+          <div id="mIgMonthlyReachChart"></div>
+        </div>
+        <div class="glass chart-card">
+          <h3>Engagement by month</h3>
+          <div id="mIgMonthlyEngagementChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- Marketing: Website ---- -->
+    <div id="marketingWebsiteView" class="mview">
+      <div class="kpis" style="grid-template-columns:repeat(2,1fr);">
+        <div class="glass kpi mint">
+          <div class="lbl">Sessions</div>
+          <div class="val-row"><div class="val num" id="mWebSessions">0</div><span class="trend-badge" id="mWebSessionsTrend"></span></div>
+          <div class="sub" id="mWebSessionsSub">—</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Active users</div>
+          <div class="val-row"><div class="val num" id="mWebUsers">0</div><span class="trend-badge" id="mWebUsersTrend"></span></div>
+          <div class="sub" id="mWebUsersSub">—</div>
+        </div>
+      </div>
+      <div class="section-head"><h2>Sessions trend</h2></div>
+      <div class="glass chart-card"><div id="mWebSessionsChart"></div></div>
+      <div class="section-head"><h2>Active users trend</h2></div>
+      <div class="glass chart-card"><div id="mWebUsersChart"></div></div>
+    </div>
+  </div>
+
+  <!-- ================= TASK LIST SECTION ================= -->
+  <div class="app-section" id="section-tasklist">
+    <div class="section-head"><h2>Task list</h2></div>
+    <div class="glass" style="padding:32px 24px; text-align:center;">
+      <div style="font-size:14px; color:var(--text-2); font-weight:600; margin-bottom:6px;">Coming soon</div>
+      <div style="font-size:12.5px; color:var(--text-3);">This section will show your team's to-dos and their status.</div>
     </div>
   </div>
 
@@ -2581,6 +2664,10 @@ function mSetText(id, val){
   const el = document.getElementById(id);
   if(el) el.textContent = val;
 }
+function mSetHtml(id, html){
+  const el = document.getElementById(id);
+  if(el) el.innerHTML = html;
+}
 function marketingByPlatform(platform){
   return marketingState.metrics.filter(m => String(m.platform||'').toLowerCase() === platform);
 }
@@ -2632,27 +2719,129 @@ function marketingMonthlyEngagement(instagramRows){
   });
 }
 
+// ---- Day / Week / Month trend engine ----
+// Reads the same daily rows the charts use; nothing here writes anything,
+// so it carries zero risk to the metrics data itself.
+function periodDays(period){ return period === 'day' ? 1 : period === 'week' ? 7 : 30; }
+function periodPhrase(period){ return period === 'day' ? 'vs previous day' : period === 'week' ? 'vs previous week' : 'vs previous month'; }
+
+// mode: 'sum' (running total over the window, e.g. sessions), 'avg' (daily
+// average over the window, e.g. active users), or 'last' (most recent value
+// as of that date, e.g. a follower count that isn't additive).
+function marketingTrend(rows, metricName, period, mode){
+  mode = mode || 'sum';
+  const days = periodDays(period);
+  const dated = rows.filter(r => r.metric === metricName && r.date)
+    .slice().sort((a,b) => String(a.date).localeCompare(String(b.date)));
+  if(!dated.length) return { current: null, pct: null };
+  const latestDate = dated[dated.length-1].date;
+
+  function valueAsOf(endStr){
+    let best = null;
+    dated.forEach(r => { if(String(r.date) <= endStr) best = r; });
+    return best ? (Number(best.value) || 0) : null;
+  }
+  function aggRange(endStr, len){
+    const end = new Date(endStr); const start = new Date(end); start.setDate(start.getDate() - len + 1);
+    const vals = dated.filter(r => { const d = new Date(r.date); return d >= start && d <= end; }).map(r => Number(r.value) || 0);
+    if(!vals.length) return 0;
+    return mode === 'avg' ? (vals.reduce((a,b)=>a+b,0) / vals.length) : vals.reduce((a,b)=>a+b,0);
+  }
+
+  const priorEnd = new Date(latestDate); priorEnd.setDate(priorEnd.getDate() - days);
+  const priorEndStr = priorEnd.toISOString().slice(0,10);
+
+  let current, prior;
+  if(mode === 'last'){ current = valueAsOf(latestDate); prior = valueAsOf(priorEndStr); }
+  else { current = aggRange(latestDate, days); prior = aggRange(priorEndStr, days); }
+
+  if(current === null) return { current: null, pct: null };
+  let pct;
+  if(prior === null) pct = null;
+  else if(prior > 0) pct = Math.round(((current - prior) / prior) * 1000) / 10;
+  else pct = current > 0 ? 100 : 0;
+  return { current: Math.round(current * 10) / 10, pct };
+}
+
+// Engagement isn't stored directly — it's interactions ÷ reach — so its
+// trend is computed from both series' sums over the same two windows.
+function marketingEngagementTrend(instagramRows, period){
+  const days = periodDays(period);
+  const reachRows = instagramRows.filter(r => r.metric === 'reach' && r.date);
+  const intRows = instagramRows.filter(r => r.metric === 'total_interactions' && r.date);
+  const allDates = [...reachRows, ...intRows].map(r => r.date).sort();
+  if(!allDates.length) return { current: 0, pct: null };
+  const latestDate = allDates[allDates.length-1];
+
+  function sumRange(rows, endStr, len){
+    const end = new Date(endStr); const start = new Date(end); start.setDate(start.getDate() - len + 1);
+    return rows.filter(r => { const d = new Date(r.date); return d >= start && d <= end; })
+      .reduce((s,r) => s + (Number(r.value)||0), 0);
+  }
+
+  const curReach = sumRange(reachRows, latestDate, days);
+  const curInt = sumRange(intRows, latestDate, days);
+  const curPct = curReach > 0 ? (curInt / curReach) * 100 : 0;
+
+  const priorEnd = new Date(latestDate); priorEnd.setDate(priorEnd.getDate() - days);
+  const priorEndStr = priorEnd.toISOString().slice(0,10);
+  const priorReach = sumRange(reachRows, priorEndStr, days);
+  const priorInt = sumRange(intRows, priorEndStr, days);
+  const priorPct = priorReach > 0 ? (priorInt / priorReach) * 100 : 0;
+
+  let delta;
+  if(priorReach === 0 && curReach === 0) delta = null;
+  else if(priorPct > 0) delta = Math.round(((curPct - priorPct) / priorPct) * 1000) / 10;
+  else delta = curPct > 0 ? 100 : 0;
+
+  return { current: Math.round(curPct * 10) / 10, pct: delta };
+}
+
+function trendBadgeHtml(pct){
+  if(pct === null || !isFinite(pct)) return '';
+  const up = pct >= 0;
+  return `<span class="trend-badge ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+}
+
+// Fills one KPI tile: the big number, the trend badge (or blank if there's
+// nothing to compare against), and the sub-label — or a "not connected"
+// message when the metric has never been reported.
+function renderTrendKpi(valId, subId, trendId, trend, opts){
+  opts = opts || {};
+  const notConnectedMsg = opts.notConnectedMsg || 'No data yet';
+  const suffix = opts.suffix || '';
+  if(trend.current === null){
+    mSetText(valId, '—');
+    mSetText(subId, notConnectedMsg);
+    mSetHtml(trendId, '');
+    return;
+  }
+  mSetText(valId, trend.current.toLocaleString('en-US') + suffix);
+  mSetHtml(trendId, trendBadgeHtml(trend.pct));
+  mSetText(subId, periodPhrase(marketingPeriod));
+}
+
 function renderMarketing(){
   const instagram = marketingByPlatform('instagram');
-  const reachSeries = marketingSeries(instagram, 'reach');
-  const interactionsSeries = marketingSeries(instagram, 'total_interactions');
+  const facebook = marketingByPlatform('facebook');
+  const website = marketingByPlatform('website');
 
-  const latest = arr => arr.length ? arr[arr.length-1].value : 0;
-  const latestLabel = arr => arr.length ? 'As of ' + arr[arr.length-1].label : 'No data yet';
+  // ---- Overview sub-tab ----
+  const igFollowersTrend = marketingTrend(instagram, 'followers', marketingPeriod, 'last');
+  renderTrendKpi('mOvIgFollowers', 'mOvIgFollowersSub', 'mOvIgFollowersTrend', igFollowersTrend, { notConnectedMsg: 'Needs a Facebook Pages connection' });
+  const pageFollowersTrend = marketingTrend(facebook, 'followers', marketingPeriod, 'last');
+  renderTrendKpi('mOvPageFollowers', 'mOvPageFollowersSub', 'mOvPageFollowersTrend', pageFollowersTrend, { notConnectedMsg: 'Needs a Facebook Pages connection' });
+  const engagementTrend = marketingEngagementTrend(instagram, marketingPeriod);
+  renderTrendKpi('mOvEngagement', 'mOvEngagementSub', 'mOvEngagementTrend', engagementTrend, { suffix: '%' });
+  const sessionsTrendOv = marketingTrend(website, 'sessions', marketingPeriod, 'sum');
+  renderTrendKpi('mOvSessions', 'mOvSessionsSub', 'mOvSessionsTrend', sessionsTrendOv, { notConnectedMsg: 'No data yet' });
 
-  const latestReach = latest(reachSeries);
-  const latestInteractions = latest(interactionsSeries);
-  const engagementPct = latestReach > 0 ? Math.round((latestInteractions/latestReach)*1000)/10 : 0;
+  // ---- Instagram sub-tab ----
+  renderTrendKpi('mIgFollowers', 'mIgFollowersSub', 'mIgFollowersTrend', igFollowersTrend, { notConnectedMsg: 'Needs a Facebook Pages connection' });
+  const avgViewedTrend = marketingTrend(instagram, 'reach', marketingPeriod, 'avg');
+  renderTrendKpi('mIgAvgViewed', 'mIgAvgViewedSub', 'mIgAvgViewedTrend', avgViewedTrend);
+  renderTrendKpi('mIgEngagement', 'mIgEngagementSub', 'mIgEngagementTrend', engagementTrend, { suffix: '%' });
 
-  // KPI row: Followers, Content performance, Engagement
-  mSetText('mContentPerf', latestReach.toLocaleString('en-US'));
-  mSetText('mContentPerfSub', latestLabel(reachSeries));
-  mSetText('mEngagement', engagementPct + '%');
-  mSetText('mEngagementSub', latestLabel(interactionsSeries));
-  // Followers stays "—" until a Facebook Pages connection is added — the KPI
-  // and its sub-label already say why, so there's nothing else to compute here.
-
-  // Top performing content
   const postScore = p => Number(p.engagement ?? p.likes ?? p.reach ?? 0) || 0;
   const topPosts = (marketingState.posts || [])
     .slice()
@@ -2663,14 +2852,19 @@ function renderMarketing(){
       value: postScore(p),
       color: [CLR_MINT, CLR_CORAL, CLR_VIOLET][i % 3]
     }));
-  buildHBarChart('mTopContent', topPosts, 480);
+  buildHBarChart('mIgTopContent', topPosts, 480);
 
-  // Performance timeline — one point per calendar month, so months are
-  // easy to compare against each other at a glance.
   const monthlyReach = marketingMonthlySeries(instagram, 'reach', 'sum');
   const monthlyEngagement = marketingMonthlyEngagement(instagram);
-  buildLineChart('mMonthlyReachChart', monthlyReach);
-  buildLineChart('mMonthlyEngagementChart', monthlyEngagement);
+  buildLineChart('mIgMonthlyReachChart', monthlyReach);
+  buildLineChart('mIgMonthlyEngagementChart', monthlyEngagement);
+
+  // ---- Website sub-tab ----
+  renderTrendKpi('mWebSessions', 'mWebSessionsSub', 'mWebSessionsTrend', sessionsTrendOv);
+  const usersTrend = marketingTrend(website, 'active_users', marketingPeriod, 'avg');
+  renderTrendKpi('mWebUsers', 'mWebUsersSub', 'mWebUsersTrend', usersTrend);
+  buildLineChart('mWebSessionsChart', marketingSeries(website, 'sessions'));
+  buildLineChart('mWebUsersChart', marketingSeries(website, 'active_users'));
 }
 
 function monthlyRevenueSeries(invoices){
@@ -3898,6 +4092,40 @@ function closeSidebar(){
 document.getElementById('hamburgerBtn').addEventListener('click', openSidebar);
 document.getElementById('sidebarCloseBtn').addEventListener('click', closeSidebar);
 document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+
+// ---------- top-level section switching (Dashboard / Marketing / Task list) ----------
+document.getElementById('sectionNav').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab');
+  if(!btn) return;
+  document.querySelectorAll('#sectionNav .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const section = btn.dataset.section;
+  document.querySelectorAll('.app-section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('section-'+section).classList.add('active');
+  closeSidebar();
+});
+
+// ---------- Marketing sub-tabs (Overview / Instagram / Website) ----------
+document.getElementById('marketingTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab');
+  if(!btn) return;
+  document.querySelectorAll('#marketingTabs .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const mview = btn.dataset.mview;
+  document.querySelectorAll('.mview').forEach(v=>v.classList.remove('active'));
+  document.getElementById('marketing'+mview.charAt(0).toUpperCase()+mview.slice(1)+'View').classList.add('active');
+});
+
+// ---------- Marketing period toggle (Day / Week / Month) — recomputes every trend badge ----------
+let marketingPeriod = 'day';
+document.getElementById('marketingPeriodToggle').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab');
+  if(!btn) return;
+  document.querySelectorAll('#marketingPeriodToggle .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  marketingPeriod = btn.dataset.period;
+  renderMarketing();
+});
 
 // ---------- add / edit invoice modal ----------
 const invoiceModal = document.getElementById('invoiceModalOverlay');
