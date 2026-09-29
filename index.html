@@ -105,6 +105,9 @@
   .main-tabs{ margin-bottom:22px; }
   .view{ display:none; }
   .view.active{ display:block; }
+  .msubview{ display:none; }
+  .msubview.active{ display:block; }
+  .marketing-subtabs{ margin-bottom:18px; }
 
   .kpis{ display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:18px; }
   .kpi{ padding:18px 20px; }
@@ -655,6 +658,7 @@
     <button class="tab" data-view="map" data-i18n="tabMap">Map</button>
     <button class="tab" data-view="monthly" data-i18n="tabMonthly">Monthly</button>
     <button class="tab" data-view="expenses" data-i18n="tabExpenses">Expenses</button>
+    <button class="tab" data-view="marketing" data-i18n="tabMarketing">Marketing</button>
     <button class="tab" data-view="generate" data-i18n="tabGenerate">Generate invoice</button>
   </div>
 
@@ -1019,6 +1023,102 @@
         <label data-i18n="lblStartingBalance">Starting bank balance (before this dashboard's records began)</label>
         <input type="number" id="startingBalanceInput" placeholder="0" />
       </div>
+    </div>
+  </div>
+
+  <!-- ================= MARKETING ================= -->
+  <div id="marketingView" class="view">
+    <div class="tabs marketing-subtabs" id="marketingSubTabs">
+      <button class="tab active" data-msub="overall">Overall performance</button>
+      <button class="tab" data-msub="website">Website</button>
+      <button class="tab" data-msub="instagram">Instagram</button>
+    </div>
+
+    <!-- ---- Overall ---- -->
+    <div id="msub-overall" class="msubview active">
+      <div class="kpis">
+        <div class="glass kpi mint">
+          <div class="lbl">Website sessions</div>
+          <div class="val num" id="mOverallSessions">0</div>
+          <div class="sub" id="mOverallSessionsSub">—</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Instagram reach</div>
+          <div class="val num" id="mOverallReach">0</div>
+          <div class="sub" id="mOverallReachSub">—</div>
+        </div>
+        <div class="glass kpi coral">
+          <div class="lbl">Instagram interactions</div>
+          <div class="val num" id="mOverallInteractions">0</div>
+          <div class="sub" id="mOverallInteractionsSub">—</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Engagement rate</div>
+          <div class="val num" id="mOverallEngagement">0%</div>
+          <div class="sub">Interactions ÷ reach, latest day</div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="glass chart-card">
+          <h3>Website vs Instagram activity</h3>
+          <div class="pie-row">
+            <div id="mOverallPie" style="width:130px;height:130px;flex-shrink:0;"></div>
+            <div class="pie-legend" id="mOverallPieLegend"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---- Website ---- -->
+    <div id="msub-website" class="msubview">
+      <div class="kpis" style="grid-template-columns:repeat(2,1fr);">
+        <div class="glass kpi mint">
+          <div class="lbl">Sessions (latest day)</div>
+          <div class="val num" id="mWebSessions">0</div>
+          <div class="sub" id="mWebSessionsSub">—</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Active users (latest day)</div>
+          <div class="val num" id="mWebUsers">0</div>
+          <div class="sub" id="mWebUsersSub">—</div>
+        </div>
+      </div>
+      <div class="section-head"><h2>Sessions trend</h2></div>
+      <div class="glass chart-card"><div id="mWebSessionsChart"></div></div>
+      <div class="section-head"><h2>Active users trend</h2></div>
+      <div class="glass chart-card"><div id="mWebUsersChart"></div></div>
+    </div>
+
+    <!-- ---- Instagram ---- -->
+    <div id="msub-instagram" class="msubview">
+      <div class="kpis">
+        <div class="glass kpi mint">
+          <div class="lbl">Reach (latest day)</div>
+          <div class="val num" id="mIgReach">0</div>
+          <div class="sub" id="mIgReachSub">—</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Total interactions (latest day)</div>
+          <div class="val num" id="mIgInteractions">0</div>
+          <div class="sub" id="mIgInteractionsSub">—</div>
+        </div>
+        <div class="glass kpi coral">
+          <div class="lbl">Engagement rate</div>
+          <div class="val num" id="mIgEngagement">0%</div>
+          <div class="sub">Interactions ÷ reach, latest day</div>
+        </div>
+        <div class="glass kpi">
+          <div class="lbl">Followers</div>
+          <div class="val num" id="mIgFollowers">—</div>
+          <div class="sub" id="mIgFollowersSub">Needs a Facebook Pages connection</div>
+        </div>
+      </div>
+      <div class="section-head"><h2>Reach trend</h2></div>
+      <div class="glass chart-card"><div id="mIgReachChart"></div></div>
+      <div class="section-head"><h2>Total interactions trend</h2></div>
+      <div class="glass chart-card"><div id="mIgInteractionsChart"></div></div>
+      <div class="section-head"><h2>Top performing posts</h2></div>
+      <div class="glass chart-card"><div id="mIgTopPosts"></div></div>
     </div>
   </div>
 
@@ -1568,6 +1668,14 @@ function seedInvoices(){
 }
 
 let state = { products: [], invoices: [], clients: [], stockEntries: [], studioReports: [], fixedExpenses: [], expenses: [], startingBalance: 0, rewardThresholds: null };
+
+// Marketing dashboard data (Website + Instagram analytics, fed by the Make.com
+// automations into the `marketing_metrics` / `instagram_posts` Supabase tables)
+// lives in its OWN isolated fields, loaded by its OWN read-only function below.
+// It deliberately does NOT go through state above, TABLE_MAP, loadState(), or
+// lastSyncedIds/STORAGE_KEYS: this is a plain SELECT with no upsert/delete
+// logic at all, so it can never touch or corrupt the sales data those manage.
+let marketingState = { metrics: [], posts: [] };
 // ---------- Supabase live sync ----------
 // The dashboard's data (products, invoices, clients, stock log, studio
 // reports, fixed/one-off expenses, settings) lives in Supabase Postgres now,
@@ -2431,6 +2539,121 @@ function buildLineChart(containerId, points){
       ${labels}
     </svg>`;
 }
+
+// ---------- Marketing tab (isolated, read-only) ----------
+// Pure SELECTs against `marketing_metrics` and `instagram_posts`. No upsert,
+// no delete-detection, no participation in TABLE_MAP/loadState/STORAGE_KEYS —
+// this can only ever read, never write, so sales data stays untouched no
+// matter what happens here.
+async function loadMarketingMetrics(){
+  try{
+    const { data, error } = await sb.from('marketing_metrics').select('*').order('date', { ascending: true });
+    if(error) throw error;
+    marketingState.metrics = data || [];
+  }catch(e){
+    console.error('loadMarketingMetrics: marketing_metrics fetch failed', e);
+    marketingState.metrics = marketingState.metrics || [];
+  }
+  try{
+    const { data, error } = await sb.from('instagram_posts').select('*').order('date', { ascending: false });
+    if(error) throw error;
+    marketingState.posts = data || [];
+  }catch(e){
+    // Table may not exist yet / may be empty — fine, the Top Posts chart
+    // already renders a graceful "No data yet." state for an empty array.
+    console.error('loadMarketingMetrics: instagram_posts fetch failed', e);
+    marketingState.posts = marketingState.posts || [];
+  }
+}
+
+function mSetText(id, val){
+  const el = document.getElementById(id);
+  if(el) el.textContent = val;
+}
+function marketingByPlatform(platform){
+  return marketingState.metrics.filter(m => String(m.platform||'').toLowerCase() === platform);
+}
+function marketingSeries(rows, metricName){
+  return rows.filter(r => r.metric === metricName)
+    .slice()
+    .sort((a,b) => String(a.date||'').localeCompare(String(b.date||'')))
+    .map(r => ({ label: String(r.date||'').slice(5) || '—', value: Number(r.value) || 0 }));
+}
+
+function renderMarketing(){
+  const website = marketingByPlatform('website');
+  const instagram = marketingByPlatform('instagram');
+
+  const sessionsSeries = marketingSeries(website, 'sessions');
+  const usersSeries = marketingSeries(website, 'active_users');
+  const reachSeries = marketingSeries(instagram, 'reach');
+  const interactionsSeries = marketingSeries(instagram, 'total_interactions');
+
+  const latest = arr => arr.length ? arr[arr.length-1].value : 0;
+  const latestLabel = arr => arr.length ? 'As of ' + arr[arr.length-1].label : 'No data yet';
+
+  const latestSessions = latest(sessionsSeries);
+  const latestUsers = latest(usersSeries);
+  const latestReach = latest(reachSeries);
+  const latestInteractions = latest(interactionsSeries);
+  const engagementPct = latestReach > 0 ? Math.round((latestInteractions/latestReach)*1000)/10 : 0;
+
+  // Website sub-tab
+  mSetText('mWebSessions', latestSessions.toLocaleString('en-US'));
+  mSetText('mWebSessionsSub', latestLabel(sessionsSeries));
+  mSetText('mWebUsers', latestUsers.toLocaleString('en-US'));
+  mSetText('mWebUsersSub', latestLabel(usersSeries));
+  buildLineChart('mWebSessionsChart', sessionsSeries);
+  buildLineChart('mWebUsersChart', usersSeries);
+
+  // Instagram sub-tab
+  mSetText('mIgReach', latestReach.toLocaleString('en-US'));
+  mSetText('mIgReachSub', latestLabel(reachSeries));
+  mSetText('mIgInteractions', latestInteractions.toLocaleString('en-US'));
+  mSetText('mIgInteractionsSub', latestLabel(interactionsSeries));
+  mSetText('mIgEngagement', engagementPct + '%');
+  buildLineChart('mIgReachChart', reachSeries);
+  buildLineChart('mIgInteractionsChart', interactionsSeries);
+
+  const postScore = p => Number(p.engagement ?? p.likes ?? p.reach ?? 0) || 0;
+  const topPosts = (marketingState.posts || [])
+    .slice()
+    .sort((a,b) => postScore(b) - postScore(a))
+    .slice(0, 8)
+    .map((p,i) => ({
+      label: p.caption ? (p.caption.length > 28 ? p.caption.slice(0,28)+'…' : p.caption) : ('Post ' + (i+1)),
+      value: postScore(p),
+      color: [CLR_MINT, CLR_CORAL, CLR_VIOLET][i % 3]
+    }));
+  buildHBarChart('mIgTopPosts', topPosts, 480);
+
+  // Overall sub-tab
+  const sessionsTotal = sessionsSeries.reduce((s,p) => s + p.value, 0);
+  mSetText('mOverallSessions', sessionsTotal.toLocaleString('en-US'));
+  mSetText('mOverallSessionsSub', sessionsSeries.length ? ('Across ' + sessionsSeries.length + ' day(s) tracked') : 'No data yet');
+  mSetText('mOverallReach', latestReach.toLocaleString('en-US'));
+  mSetText('mOverallReachSub', latestLabel(reachSeries));
+  mSetText('mOverallInteractions', latestInteractions.toLocaleString('en-US'));
+  mSetText('mOverallInteractionsSub', latestLabel(interactionsSeries));
+  mSetText('mOverallEngagement', engagementPct + '%');
+  buildPie('mOverallPie', 'mOverallPieLegend', [
+    { label: 'Website sessions', value: sessionsTotal, color: CLR_MINT },
+    { label: 'Instagram reach', value: latestReach, color: CLR_VIOLET },
+    { label: 'Instagram interactions', value: latestInteractions, color: CLR_CORAL },
+  ], 'units');
+}
+
+// Marketing sub-tabs (Overall / Website / Instagram) switch independently of
+// the main tab bar — purely a display toggle, no data fetching involved.
+document.getElementById('marketingSubTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('.tab');
+  if(!btn) return;
+  document.querySelectorAll('#marketingSubTabs .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const sub = btn.dataset.msub;
+  document.querySelectorAll('.msubview').forEach(v=>v.classList.remove('active'));
+  document.getElementById('msub-'+sub).classList.add('active');
+});
 
 function monthlyRevenueSeries(invoices){
   const byMonth = {};
@@ -3628,6 +3851,7 @@ function renderAll(){
   renderMonthlyView();
   renderStockView();
   renderExpensesView();
+  renderMarketing();
   populateGenClientSelect();
 }
 
@@ -4349,6 +4573,11 @@ if(portalTokenFromUrl){
         });
         if(added) await saveInvoices();
       }
+
+      // Isolated, read-only — wrapped in its own try/catch so that even a
+      // total failure here (bad network, missing table, etc.) can never
+      // stop the sales dashboard above from rendering.
+      try{ await loadMarketingMetrics(); }catch(e){ console.error('loadMarketingMetrics failed', e); }
 
       renderAll();
       setupStockScrollSlider();
