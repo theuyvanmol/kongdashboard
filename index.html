@@ -236,15 +236,62 @@
   .expense-table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; } /* deliberately never hidden on mobile — no card fallback needed, these tables are narrow enough to scroll */
 
   .stock-studio-picker{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+  .stock-studio-select{ flex:1; min-width:160px; font-size:15px; padding:10px 12px; }
   .stand-badge{ font-size:10.5px; font-weight:700; padding:5px 12px; border-radius:20px; white-space:nowrap; }
-  .stock-product-rows{ display:flex; flex-direction:column; gap:8px; }
-  .stock-product-row{ display:flex; align-items:center; gap:12px; padding:12px 14px; background:rgba(255,255,255,0.04); border:1px solid var(--glass-border); border-radius:12px; }
-  .stock-product-row .spr-name{ flex:1; font-size:13px; font-weight:600; color:var(--text-1); min-width:0; }
-  .stock-product-row .spr-input{
-    width:76px; text-align:center; padding:9px 6px; border-radius:9px; border:1px solid var(--glass-border);
-    background:rgba(255,255,255,0.06); color:var(--text-1); font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600;
+
+  /* ---- old-man-friendly step size picker ---- */
+  .stock-step-picker{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--glass-border); }
+  .stock-step-label{ font-size:12.5px; font-weight:700; color:var(--text-2); }
+  .stock-step-options{ display:flex; gap:8px; }
+  .stock-step-opt{
+    min-width:44px; height:40px; padding:0 14px; border-radius:10px; border:1px solid var(--glass-border);
+    background:rgba(255,255,255,0.05); color:var(--text-2); font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:700;
+    cursor:pointer; transition:all .15s;
   }
-  .stock-product-row .spr-input:focus{ border-color:var(--violet); outline:none; }
+  .stock-step-opt:hover{ background:rgba(255,255,255,0.09); }
+  .stock-step-opt.active{ background:linear-gradient(135deg, var(--violet), var(--aurora-teal)); color:#fff; border-color:transparent; }
+
+  /* ---- per-product row: name always next to its own +/- controls, never scrolls away from it ---- */
+  .stock-product-rows{ display:flex; flex-direction:column; gap:10px; }
+  .stock-product-row{
+    display:flex; align-items:center; gap:10px; padding:12px 12px; background:rgba(255,255,255,0.04);
+    border:1px solid var(--glass-border); border-radius:14px; flex-wrap:wrap;
+  }
+  .stock-product-row .spr-name{ flex:1 1 140px; font-size:15px; font-weight:700; color:var(--text-1); min-width:0; }
+  .stock-product-row .spr-controls{ display:flex; align-items:center; gap:10px; margin-left:auto; }
+  .stock-product-row .spr-btn{
+    width:44px; height:44px; flex-shrink:0; border-radius:50%; border:1px solid var(--glass-border);
+    background:rgba(255,255,255,0.07); color:var(--text-1); font-size:22px; font-weight:700; line-height:1;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; user-select:none; transition:transform .1s, background .15s;
+  }
+  .stock-product-row .spr-btn:active{ transform:scale(0.92); }
+  .stock-product-row .spr-btn.minus{ color:var(--coral); }
+  .stock-product-row .spr-btn.minus:hover{ background:rgba(255,107,107,0.16); }
+  .stock-product-row .spr-btn.plus{ color:var(--mint); }
+  .stock-product-row .spr-btn.plus:hover{ background:rgba(96,230,170,0.16); }
+  .stock-product-row .spr-btn:disabled{ opacity:0.35; cursor:not-allowed; transform:none; }
+  .stock-product-row .spr-qty{
+    min-width:52px; text-align:center; font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:800; color:var(--text-1);
+    cursor:pointer; border-radius:8px; padding:4px 2px;
+  }
+  .stock-product-row .spr-qty:hover{ background:rgba(255,255,255,0.06); }
+  .stock-product-row .spr-qty.low{ color:var(--coral); }
+  .stock-product-row .spr-flash{ animation:sprFlash .5s ease; }
+  @keyframes sprFlash{ 0%{ background:rgba(179,163,255,0.3); } 100%{ background:transparent; } }
+
+  /* ---- monthly sold report ---- */
+  .stock-sold-month{ border-bottom:1px solid var(--glass-border); padding:12px 2px; }
+  .stock-sold-month:last-child{ border-bottom:none; }
+  .stock-sold-month-head{ display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .stock-sold-month-head .ssm-label{ font-size:14px; font-weight:700; color:var(--text-1); flex:1; }
+  .stock-sold-month-head .ssm-total{ font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:700; color:var(--aurora-teal); }
+  .stock-sold-month-head svg{ width:16px; height:16px; color:var(--text-3); transition:transform .15s; flex-shrink:0; }
+  .stock-sold-month.open .stock-sold-month-head svg{ transform:rotate(90deg); }
+  .stock-sold-breakdown{ display:none; padding:10px 0 0 4px; }
+  .stock-sold-month.open .stock-sold-breakdown{ display:block; }
+  .stock-sold-row{ display:flex; justify-content:space-between; padding:4px 0; font-size:12.5px; color:var(--text-2); }
+  .stock-sold-row b{ color:var(--text-1); font-family:'JetBrains Mono',monospace; }
+
   .stock-toolbar{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
   .stock-scroll-row{ display:flex; align-items:center; gap:10px; margin-top:12px; padding:0 2px; }
   .stock-scroll-row input[type="range"]{
@@ -264,6 +311,16 @@
   .stock-matrix th:first-child, .stock-matrix td:first-child{
     position:sticky; left:0; background:rgba(13,16,26,0.97); z-index:1;
     box-shadow: 2px 0 0 rgba(255,255,255,0.07);
+  }
+  /* keep product-name headers visible while scrolling down a long studio list, so you never lose track of which column is which product */
+  #stockTableWrap{ max-height:70vh; overflow-y:auto; }
+  .stock-matrix thead th{ position:sticky; top:0; background:rgba(13,16,26,0.97); z-index:2; }
+  .stock-matrix thead th:first-child{ z-index:3; }
+
+  @media (max-width: 720px){
+    .stock-step-picker{ justify-content:space-between; }
+    .stock-product-row .spr-name{ flex-basis:100%; }
+    .stock-product-row .spr-controls{ margin-left:0; width:100%; justify-content:space-between; }
   }
   .stock-cell-input{
     width:56px; text-align:right; padding:5px 6px; border-radius:7px; border:1px solid transparent;
@@ -949,29 +1006,43 @@
   <div id="stockView" class="view">
     <div class="section-head">
       <h2 data-i18n="hdrStockGiven">Stock given to each studio</h2>
-      <button class="btn primary" id="addStockEntryBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Log stock entry
-      </button>
     </div>
 
     <div class="glass" style="padding:18px 20px; margin-bottom:20px;">
       <div class="stock-studio-picker">
-        <select id="stockStudioSelect" class="task-filter" style="flex:1; min-width:160px;"></select>
+        <select id="stockStudioSelect" class="task-filter stock-studio-select"></select>
         <span class="stand-badge" id="stockHealthBadge" style="display:none;"></span>
         <span class="stand-badge" id="stockStandBadge" style="display:none;"></span>
         <button class="btn ghost small" id="stockAddStudioBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
           Add studio
         </button>
-        <button class="btn ghost small" id="stockRemoveStudioBtn" style="color:var(--coral);">Remove studio</button>
+        <button class="btn ghost small" id="stockRemoveStudioBtn" style="color:var(--coral);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          Delete studio
+        </button>
       </div>
 
-      <div id="stockStudioEmpty" class="task-empty" style="display:none; text-align:center; padding:24px; color:var(--text-3); font-size:13px;">No studios yet — click "Add studio" to get started.</div>
+      <div id="stockStudioEmpty" class="task-empty" style="display:none; text-align:center; padding:24px; color:var(--text-3); font-size:13px;">No studios yet — tap "Add studio" to get started.</div>
 
       <div id="stockStudioDetail">
+        <div class="stock-step-picker">
+          <span class="stock-step-label">Change stock by:</span>
+          <div class="stock-step-options" id="stockStepOptions">
+            <button type="button" class="stock-step-opt" data-step="1">1</button>
+            <button type="button" class="stock-step-opt" data-step="5">5</button>
+            <button type="button" class="stock-step-opt" data-step="10">10</button>
+            <button type="button" class="stock-step-opt" data-step="20">20</button>
+          </div>
+        </div>
         <div class="stock-product-rows" id="stockProductRows"></div>
       </div>
+    </div>
+
+    <div class="section-head"><h2>Stock sold by month<span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--text-3);" id="stockSoldWhoLabel"></span></h2></div>
+    <div class="glass" style="padding:16px 18px; margin-bottom:20px;">
+      <div id="stockSoldEmpty" class="task-empty" style="display:none; text-align:center; padding:20px; color:var(--text-3); font-size:13px;">No sales logged yet for this studio.</div>
+      <div id="stockSoldMonths"></div>
     </div>
 
     <button class="btn ghost small" id="stockMatrixToggle" style="margin-bottom:10px;">Show full matrix — all studios at once</button>
@@ -991,19 +1062,6 @@
         <input type="range" id="stockScrollSlider" min="0" max="100" value="0" />
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;color:var(--text-3);"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
       </div>
-    </div>
-
-    <div class="section-head"><h2 data-i18n="hdrManualStockLog">Manual stock log</h2></div>
-    <div class="glass" style="padding:8px 6px;">
-      <div class="invoice-table-wrap">
-        <table class="invoice-table">
-          <thead>
-            <tr><th data-i18n="colStudio">Studio</th><th data-i18n="colProduct">Product</th><th class="r" data-i18n="colQty">Qty</th><th data-i18n="colDate">Date</th><th data-i18n="colNote">Note</th><th></th></tr>
-          </thead>
-          <tbody id="stockLogRows"></tbody>
-        </table>
-      </div>
-      <div id="stockLogEmpty" class="task-empty" style="display:none; text-align:center; padding:24px; color:var(--text-3); font-size:13px;">No manual entries yet — log a drop-off or top-up above.</div>
     </div>
   </div>
 
@@ -1488,49 +1546,6 @@
       <button class="btn ghost" id="efCancel" data-i18n="btnCancel">Cancel</button>
       <button class="btn ghost" id="efDelete" style="display:none; color:var(--coral);" data-i18n="btnDelete">Delete</button>
       <button class="btn primary" id="efSave" data-i18n="btnSave">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- Add stock entry modal -->
-<div class="overlay" id="stockModalOverlay">
-  <div class="glass modal" style="width:420px;">
-    <h3 id="stockModalTitle">Log stock entry</h3>
-    <div class="field">
-      <label>Studio</label>
-      <select id="sfClient"></select>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Product</label>
-        <select id="sfProduct"></select>
-      </div>
-      <div class="field">
-        <label>Type</label>
-        <select id="sfType">
-          <option value="add">Drop-off / top-up (+)</option>
-          <option value="remove">Removed / correction (-)</option>
-        </select>
-      </div>
-    </div>
-    <div class="field-row">
-      <div class="field">
-        <label>Quantity</label>
-        <input type="number" id="sfQty" min="0" value="1" />
-      </div>
-      <div class="field">
-        <label>Date</label>
-        <input type="date" id="sfDate" />
-      </div>
-    </div>
-    <div class="field">
-      <label>Note (optional)</label>
-      <input type="text" id="sfNote" placeholder="e.g. Free samples for new display" />
-    </div>
-    <div class="modal-actions">
-      <button class="btn ghost" id="sfCancel">Cancel</button>
-      <button class="btn ghost" id="sfDelete" style="display:none; color:var(--coral);">Delete entry</button>
-      <button class="btn primary" id="sfSave">Save</button>
     </div>
   </div>
 </div>
@@ -4480,6 +4495,9 @@ function setupStockScrollSlider(){
 }
 
 let selectedStockStudio = null;
+let stockStepSize = 1;
+
+function todayISO(){ const d = new Date(); return d.toISOString().slice(0,10); }
 
 function allKnownStudios(){
   const fromInvoices = state.invoices.map(inv=>inv.client);
@@ -4493,6 +4511,35 @@ function populateStockStudioSelect(){
   const studios = allKnownStudios();
   if(!selectedStockStudio || !studios.includes(selectedStockStudio)) selectedStockStudio = studios[0] || null;
   sel.innerHTML = studios.map(s=>`<option value="${escapeHtml(s)}" ${s===selectedStockStudio?'selected':''}>${escapeHtml(s)}</option>`).join('');
+}
+
+function stockQtyFromInvoices(client, productId){
+  let qty = 0;
+  state.invoices.filter(inv=>inv.client===client).forEach(inv=>{
+    inv.lines.forEach(l=>{ if(l.productId===productId) qty += l.qty; });
+  });
+  return qty;
+}
+function stockQtyFromManual(client, productId){
+  let qty = 0;
+  state.stockEntries.filter(e=>e.client===client && e.productId===productId).forEach(e=>{ qty += e.qty; });
+  return qty;
+}
+// current stock on hand for a studio+product. Positive stock_entries = restocked; negative = sold/removed.
+function currentStockQty(client, productId){
+  return stockQtyFromInvoices(client, productId) + stockQtyFromManual(client, productId);
+}
+
+// ---------- step-size picker (how many units +/- moves at a time) ----------
+function setupStockStepPicker(){
+  const wrap = document.getElementById('stockStepOptions');
+  wrap.querySelectorAll('.stock-step-opt').forEach(btn=>{
+    btn.classList.toggle('active', Number(btn.dataset.step)===stockStepSize);
+    btn.addEventListener('click', ()=>{
+      stockStepSize = Number(btn.dataset.step);
+      wrap.querySelectorAll('.stock-step-opt').forEach(b=> b.classList.toggle('active', b===btn));
+    });
+  });
 }
 
 function renderStockStudioDetail(){
@@ -4526,31 +4573,131 @@ function renderStockStudioDetail(){
 
   const rowsWrap = document.getElementById('stockProductRows');
   rowsWrap.innerHTML = state.products.map(p=>{
-    const qty = stockQtyFromInvoices(selectedStockStudio, p.id) + stockQtyFromManual(selectedStockStudio, p.id);
-    return `<div class="stock-product-row">
+    const qty = currentStockQty(selectedStockStudio, p.id);
+    return `<div class="stock-product-row" data-product="${p.id}">
       <div class="spr-name">${escapeHtml(p.name)}</div>
-      <input type="number" class="spr-input" data-product="${p.id}" value="${qty}" />
+      <div class="spr-controls">
+        <button type="button" class="spr-btn minus" data-dir="-1" ${qty<=0?'disabled':''} aria-label="Remove stock">−</button>
+        <div class="spr-qty" data-qty="${qty}" title="Tap to set an exact number">${qty}</div>
+        <button type="button" class="spr-btn plus" data-dir="1" aria-label="Add stock">+</button>
+      </div>
     </div>`;
   }).join('');
 
-  rowsWrap.querySelectorAll('.spr-input').forEach(input=>{
-    input.addEventListener('change', async ()=>{
-      const productId = input.dataset.product;
-      const newVal = parseFloat(input.value) || 0;
-      const currentVal = stockQtyFromInvoices(selectedStockStudio, productId) + stockQtyFromManual(selectedStockStudio, productId);
-      const delta = newVal - currentVal;
-      if(delta !== 0){
-        state.stockEntries.push({ id: uid('stk'), client: selectedStockStudio, productId, qty: delta, date: todayISO(), note: 'Adjusted via studio view' });
-        await saveStockEntries();
-      }
-      renderAll();
+  rowsWrap.querySelectorAll('.spr-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> adjustStock(btn.closest('.stock-product-row'), Number(btn.dataset.dir)*stockStepSize));
+  });
+  rowsWrap.querySelectorAll('.spr-qty').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const row = el.closest('.stock-product-row');
+      const p = productById(row.dataset.product);
+      const current = Number(el.dataset.qty);
+      const input = prompt(`Set exact stock for "${p?p.name:''}" at ${selectedStockStudio}:`, current);
+      if(input===null) return;
+      const newVal = parseFloat(input);
+      if(isNaN(newVal) || newVal<0) return;
+      adjustStock(row, newVal - current, 'Adjusted directly');
     });
+  });
+}
+
+// applies a stock change for the currently selected studio's product row, with instant visual feedback
+async function adjustStock(row, delta, noteOverride){
+  if(!row || !delta) return;
+  const productId = row.dataset.product;
+  const qtyEl = row.querySelector('.spr-qty');
+  const minusBtn = row.querySelector('.spr-btn.minus');
+  const current = Number(qtyEl.dataset.qty);
+  let actualDelta = delta;
+  if(current + actualDelta < 0) actualDelta = -current; // never let stock go below zero
+  if(actualDelta === 0) return;
+  const newVal = current + actualDelta;
+
+  // optimistic UI update — no full re-render, so the page doesn't jump or lose your place
+  qtyEl.textContent = newVal;
+  qtyEl.dataset.qty = newVal;
+  qtyEl.classList.add('spr-flash');
+  setTimeout(()=> qtyEl.classList.remove('spr-flash'), 500);
+  if(minusBtn) minusBtn.disabled = newVal<=0;
+
+  const note = noteOverride || (actualDelta>0 ? 'Restock (quick entry)' : 'Sale (quick entry)');
+  state.stockEntries.push({ id: uid('stk'), client: selectedStockStudio, productId, qty: actualDelta, date: todayISO(), note });
+  try {
+    await saveStockEntries();
+  } catch(err){
+    console.error('Failed to save stock change', err);
+    alert('Could not save that change — check your connection and try again.');
+    qtyEl.textContent = current;
+    qtyEl.dataset.qty = current;
+    if(minusBtn) minusBtn.disabled = current<=0;
+    return;
+  }
+  renderStockSoldSection();
+  updateStockHeaderBadges();
+}
+
+function updateStockHeaderBadges(){
+  const healthBadge = document.getElementById('stockHealthBadge');
+  if(!selectedStockStudio || !healthBadge) return;
+  healthBadge.outerHTML = healthBadgeHtml(selectedStockStudio).replace('<span class="stand-badge"', '<span class="stand-badge" id="stockHealthBadge"');
+}
+
+// ---------- stock sold by month ----------
+function renderStockSoldSection(){
+  const wrap = document.getElementById('stockSoldMonths');
+  const empty = document.getElementById('stockSoldEmpty');
+  const whoLabel = document.getElementById('stockSoldWhoLabel');
+  if(!selectedStockStudio){
+    wrap.innerHTML = '';
+    empty.style.display = 'block';
+    whoLabel.textContent = '';
+    return;
+  }
+  whoLabel.textContent = ` — ${selectedStockStudio}`;
+  const sales = state.stockEntries.filter(e=>e.client===selectedStockStudio && e.qty<0);
+  if(sales.length===0){
+    wrap.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const byMonth = {};
+  sales.forEach(e=>{
+    const ym = (e.date||'').slice(0,7);
+    if(!ym) return;
+    if(!byMonth[ym]) byMonth[ym] = { total:0, products:{} };
+    const amt = Math.abs(e.qty);
+    byMonth[ym].total += amt;
+    byMonth[ym].products[e.productId] = (byMonth[ym].products[e.productId]||0) + amt;
+  });
+  const months = Object.keys(byMonth).sort().reverse();
+  wrap.innerHTML = months.map((ym, idx)=>{
+    const m = byMonth[ym];
+    const rows = Object.entries(m.products)
+      .sort((a,b)=> b[1]-a[1])
+      .map(([pid, qty])=>{
+        const p = productById(pid);
+        return `<div class="stock-sold-row"><span>${p?escapeHtml(p.name):'—'}</span><b>${qty}</b></div>`;
+      }).join('');
+    return `<div class="stock-sold-month ${idx===0?'open':''}">
+      <div class="stock-sold-month-head">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="ssm-label">${monthLabel(ym)}</span>
+        <span class="ssm-total">${m.total} sold</span>
+      </div>
+      <div class="stock-sold-breakdown">${rows}</div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('.stock-sold-month-head').forEach(head=>{
+    head.addEventListener('click', ()=> head.closest('.stock-sold-month').classList.toggle('open'));
   });
 }
 
 document.getElementById('stockStudioSelect').addEventListener('change', (e)=>{
   selectedStockStudio = e.target.value;
   renderStockStudioDetail();
+  renderStockSoldSection();
 });
 document.getElementById('stockAddStudioBtn').addEventListener('click', ()=>{
   renderClientManageRows();
@@ -4562,8 +4709,8 @@ document.getElementById('stockRemoveStudioBtn').addEventListener('click', async 
   const name = selectedStockStudio;
   const invoiceCount = state.invoices.filter(inv=>inv.client===name).length;
   const msg = invoiceCount>0
-    ? `Remove ${name}? Their ${invoiceCount} existing invoice(s) will stay in Invoices, but they'll disappear from Stock and Locations until a new invoice is added for them.`
-    : `Remove ${name}?`;
+    ? `Delete ${name}? Their ${invoiceCount} existing invoice(s) will stay in Invoices, but they'll disappear from Stock and Locations until a new invoice is added for them.`
+    : `Delete ${name}?`;
   if(confirm(msg)){
     state.clients = state.clients.filter(c=>c.name!==name);
     state.stockEntries = state.stockEntries.filter(e=>e.client!==name);
@@ -4581,22 +4728,11 @@ document.getElementById('stockMatrixToggle').addEventListener('click', ()=>{
   if(!showing) setTimeout(()=>{ const s=document.getElementById('stockScrollSlider'); if(s) s.dispatchEvent(new Event('input')); }, 50);
 });
 
-function stockQtyFromInvoices(client, productId){
-  let qty = 0;
-  state.invoices.filter(inv=>inv.client===client).forEach(inv=>{
-    inv.lines.forEach(l=>{ if(l.productId===productId) qty += l.qty; });
-  });
-  return qty;
-}
-function stockQtyFromManual(client, productId){
-  let qty = 0;
-  state.stockEntries.filter(e=>e.client===client && e.productId===productId).forEach(e=>{ qty += e.qty; });
-  return qty;
-}
-
 function renderStockView(){
+  setupStockStepPicker();
   populateStockStudioSelect();
   renderStockStudioDetail();
+  renderStockSoldSection();
 
   const clients = allKnownStudios();
   const productsUsed = state.products; // show every product, including brand new ones with no activity yet
@@ -4611,7 +4747,7 @@ function renderStockView(){
     body.innerHTML = clients.map(client=>{
       let rowTotal = 0;
       const cells = productsUsed.map(p=>{
-        const qty = stockQtyFromInvoices(client, p.id) + stockQtyFromManual(client, p.id);
+        const qty = currentStockQty(client, p.id);
         rowTotal += qty;
         return `<td class="r"><input type="number" class="stock-cell-input" data-client="${escapeHtml(client)}" data-product="${p.id}" value="${qty}" /></td>`;
       }).join('');
@@ -4623,7 +4759,7 @@ function renderStockView(){
         const client = input.dataset.client;
         const productId = input.dataset.product;
         const newVal = parseFloat(input.value) || 0;
-        const currentVal = stockQtyFromInvoices(client, productId) + stockQtyFromManual(client, productId);
+        const currentVal = currentStockQty(client, productId);
         const delta = newVal - currentVal;
         if(delta !== 0){
           state.stockEntries.push({ id: uid('stk'), client, productId, qty: delta, date: todayISO(), note: 'Adjusted via table' });
@@ -4634,98 +4770,7 @@ function renderStockView(){
     });
   }
   applyStockSearchFilter();
-
-  // manual log
-  const logRows = document.getElementById('stockLogRows');
-  const logEmpty = document.getElementById('stockLogEmpty');
-  const sorted = state.stockEntries.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||''));
-  if(sorted.length===0){
-    logRows.innerHTML = '';
-    logEmpty.style.display = 'block';
-  } else {
-    logEmpty.style.display = 'none';
-    logRows.innerHTML = sorted.map(e=>{
-      const p = productById(e.productId);
-      const sign = e.qty>=0 ? '+' : '';
-      const color = e.qty>=0 ? 'var(--mint)' : 'var(--coral)';
-      return `<tr>
-        <td>${escapeHtml(e.client)}</td>
-        <td>${p?escapeHtml(p.name):'—'}</td>
-        <td class="r num" style="color:${color};">${sign}${e.qty}</td>
-        <td>${fmtDate(e.date)}</td>
-        <td style="color:var(--text-2);">${escapeHtml(e.note||'—')}</td>
-        <td>
-          <div class="icon-btn edit-stock" data-id="${e.id}" title="Edit">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4z"/></svg>
-          </div>
-        </td>
-      </tr>`;
-    }).join('');
-    logRows.querySelectorAll('.edit-stock').forEach(el=>{
-      el.addEventListener('click', ()=>{
-        const entry = state.stockEntries.find(x=>x.id===el.dataset.id);
-        if(entry) openStockModal(entry);
-      });
-    });
-  }
 }
-
-// ---------- add/edit stock entry modal ----------
-const stockModal = document.getElementById('stockModalOverlay');
-let editingStockId = null;
-function populateStockModalSelects(){
-  const clientSel = document.getElementById('sfClient');
-  const clientNames = [...new Set([...state.clients.map(c=>c.name), ...state.invoices.map(i=>i.client)])].sort();
-  clientSel.innerHTML = clientNames.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('');
-  const prodSel = document.getElementById('sfProduct');
-  prodSel.innerHTML = state.products.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
-}
-function openStockModal(entry){
-  populateStockModalSelects();
-  editingStockId = entry ? entry.id : null;
-  document.getElementById('stockModalTitle').textContent = entry ? 'Edit stock entry' : 'Log stock entry';
-  document.getElementById('sfClient').value = entry ? entry.client : (document.getElementById('sfClient').options[0]?.value || '');
-  document.getElementById('sfProduct').value = entry ? entry.productId : (state.products[0]?.id || '');
-  document.getElementById('sfType').value = entry && entry.qty<0 ? 'remove' : 'add';
-  document.getElementById('sfQty').value = entry ? Math.abs(entry.qty) : 1;
-  document.getElementById('sfDate').value = entry ? entry.date : todayISO();
-  document.getElementById('sfNote').value = entry ? (entry.note||'') : '';
-  document.getElementById('sfDelete').style.display = entry ? 'flex' : 'none';
-  stockModal.classList.add('show');
-}
-function todayISO(){ const d = new Date(); return d.toISOString().slice(0,10); }
-document.getElementById('addStockEntryBtn').addEventListener('click', ()=> openStockModal(null));
-document.getElementById('sfCancel').addEventListener('click', ()=> stockModal.classList.remove('show'));
-stockModal.addEventListener('click', (e)=>{ if(e.target===stockModal) stockModal.classList.remove('show'); });
-document.getElementById('sfSave').addEventListener('click', async ()=>{
-  const client = document.getElementById('sfClient').value;
-  const productId = document.getElementById('sfProduct').value;
-  const type = document.getElementById('sfType').value;
-  const rawQty = Math.abs(parseFloat(document.getElementById('sfQty').value)) || 0;
-  const qty = type==='remove' ? -rawQty : rawQty;
-  const date = document.getElementById('sfDate').value;
-  const note = document.getElementById('sfNote').value.trim();
-  if(!client || !productId || rawQty===0) return;
-
-  if(editingStockId){
-    const e = state.stockEntries.find(x=>x.id===editingStockId);
-    e.client=client; e.productId=productId; e.qty=qty; e.date=date; e.note=note;
-  } else {
-    state.stockEntries.push({ id: uid('stk'), client, productId, qty, date, note });
-  }
-  stockModal.classList.remove('show');
-  await saveStockEntries();
-  renderAll();
-});
-document.getElementById('sfDelete').addEventListener('click', async ()=>{
-  if(!editingStockId) return;
-  if(confirm('Delete this stock entry?')){
-    state.stockEntries = state.stockEntries.filter(x=>x.id!==editingStockId);
-    stockModal.classList.remove('show');
-    await saveStockEntries();
-    renderAll();
-  }
-});
 
 // ---------- studio portal mode ----------
 async function initPortalMode(token){
