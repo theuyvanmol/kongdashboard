@@ -239,6 +239,15 @@
   .stock-studio-select{ flex:1; min-width:160px; font-size:15px; padding:10px 12px; }
   .stand-badge{ font-size:10.5px; font-weight:700; padding:5px 12px; border-radius:20px; white-space:nowrap; }
 
+  /* ---- total stock banner ---- */
+  .stock-total-banner{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    padding:16px 18px; margin-bottom:16px; border-radius:14px;
+    background:linear-gradient(135deg, rgba(179,163,255,0.16), rgba(96,230,170,0.1)); border:1px solid var(--glass-border);
+  }
+  .stock-total-label{ font-size:13px; font-weight:700; color:var(--text-2); }
+  .stock-total-num{ font-family:'JetBrains Mono',monospace; font-size:28px; font-weight:800; color:var(--text-1); }
+
   /* ---- old-man-friendly step size picker ---- */
   .stock-step-picker{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--glass-border); }
   .stock-step-label{ font-size:12.5px; font-weight:700; color:var(--text-2); }
@@ -1026,6 +1035,10 @@
       <div id="stockStudioEmpty" class="task-empty" style="display:none; text-align:center; padding:24px; color:var(--text-3); font-size:13px;">No studios yet — tap "Add studio" to get started.</div>
 
       <div id="stockStudioDetail">
+        <div class="stock-total-banner">
+          <span class="stock-total-label">Total stock at this studio</span>
+          <span class="stock-total-num" id="stockTotalNum">0</span>
+        </div>
         <div class="stock-step-picker">
           <span class="stock-step-label">Change stock by:</span>
           <div class="stock-step-options" id="stockStepOptions">
@@ -1923,11 +1936,15 @@ async function syncSettings(){
 let lastScrollTime = 0;
 window.addEventListener('scroll', ()=>{ lastScrollTime = Date.now(); }, { passive: true, capture: true });
 
+let stockEditInFlight = 0; // >0 while a Stock-tab +/- tap or direct edit is still saving — see adjustStock()
 function isSafeToSync(){
   if(document.querySelector('.overlay.show')) return false;
   const active = document.activeElement;
   if(active && (active.tagName==='INPUT' || active.tagName==='SELECT' || active.tagName==='TEXTAREA')) return false;
   if(Date.now() - lastScrollTime < 1500) return false; // avoid a full re-render hitting mid-scroll, which looks like a glitch
+  // a stock edit that's still being upserted hasn't committed yet — a realtime refresh running now
+  // would re-fetch a stale snapshot missing it and overwrite the optimistic number with an old one
+  if(stockEditInFlight > 0) return false;
   return true;
 }
 
@@ -2109,7 +2126,9 @@ async function saveClients(){
 }
 async function saveStockEntries(){
   try{ await window.storage.set('kong-stock-2026', JSON.stringify(state.stockEntries), false); }catch(e){ console.error('save failed', e); }
-  syncTable('stockEntries');
+  // awaited (unlike the other saveX functions) so adjustStock() knows the upsert has actually
+  // landed in Supabase before it stops suppressing realtime refreshes — see stockEditInFlight.
+  await syncTable('stockEntries');
 }
 async function saveStudioReports(){
   try{ await window.storage.set('kong-reports-2026', JSON.stringify(state.studioReports), false); }catch(e){ console.error('save failed', e); }
@@ -4513,21 +4532,19 @@ function populateStockStudioSelect(){
   sel.innerHTML = studios.map(s=>`<option value="${escapeHtml(s)}" ${s===selectedStockStudio?'selected':''}>${escapeHtml(s)}</option>`).join('');
 }
 
-function stockQtyFromInvoices(client, productId){
-  let qty = 0;
-  state.invoices.filter(inv=>inv.client===client).forEach(inv=>{
-    inv.lines.forEach(l=>{ if(l.productId===productId) qty += l.qty; });
-  });
-  return qty;
-}
 function stockQtyFromManual(client, productId){
   let qty = 0;
   state.stockEntries.filter(e=>e.client===client && e.productId===productId).forEach(e=>{ qty += e.qty; });
   return qty;
 }
-// current stock on hand for a studio+product. Positive stock_entries = restocked; negative = sold/removed.
+// current stock on hand for a studio+product — purely manual input (the +/- taps and direct edits
+// on this tab), never auto-added from invoices. Invoicing a studio for units no longer bumps their
+// stock number; stock only changes when someone actually taps +/- or types an exact number here.
 function currentStockQty(client, productId){
-  return stockQtyFromInvoices(client, productId) + stockQtyFromManual(client, productId);
+  return stockQtyFromManual(client, productId);
+}
+function totalStockForStudio(client){
+  return state.products.reduce((sum, p) => sum + currentStockQty(client, p.id), 0);
 }
 
 // ---------- step-size picker (how many units +/- moves at a time) ----------
@@ -4570,6 +4587,8 @@ function renderStockStudioDetail(){
   } else {
     badge.style.display = 'none';
   }
+
+  updateStockTotalDisplay();
 
   const rowsWrap = document.getElementById('stockProductRows');
   rowsWrap.innerHTML = state.products.map(p=>{
@@ -4622,6 +4641,8 @@ async function adjustStock(row, delta, noteOverride){
 
   const note = noteOverride || (actualDelta>0 ? 'Restock (quick entry)' : 'Sale (quick entry)');
   state.stockEntries.push({ id: uid('stk'), client: selectedStockStudio, productId, qty: actualDelta, date: todayISO(), note });
+  updateStockTotalDisplay();
+  stockEditInFlight++;
   try {
     await saveStockEntries();
   } catch(err){
@@ -4630,7 +4651,10 @@ async function adjustStock(row, delta, noteOverride){
     qtyEl.textContent = current;
     qtyEl.dataset.qty = current;
     if(minusBtn) minusBtn.disabled = current<=0;
+    updateStockTotalDisplay();
     return;
+  } finally {
+    stockEditInFlight--;
   }
   renderStockSoldSection();
   updateStockHeaderBadges();
@@ -4640,6 +4664,11 @@ function updateStockHeaderBadges(){
   const healthBadge = document.getElementById('stockHealthBadge');
   if(!selectedStockStudio || !healthBadge) return;
   healthBadge.outerHTML = healthBadgeHtml(selectedStockStudio).replace('<span class="stand-badge"', '<span class="stand-badge" id="stockHealthBadge"');
+}
+function updateStockTotalDisplay(){
+  const el = document.getElementById('stockTotalNum');
+  if(!el || !selectedStockStudio) return;
+  el.textContent = totalStockForStudio(selectedStockStudio);
 }
 
 // ---------- stock sold by month ----------
@@ -4763,7 +4792,8 @@ function renderStockView(){
         const delta = newVal - currentVal;
         if(delta !== 0){
           state.stockEntries.push({ id: uid('stk'), client, productId, qty: delta, date: todayISO(), note: 'Adjusted via table' });
-          await saveStockEntries();
+          stockEditInFlight++;
+          try { await saveStockEntries(); } finally { stockEditInFlight--; }
         }
         renderAll();
       });
