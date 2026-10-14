@@ -4532,9 +4532,15 @@ function populateStockStudioSelect(){
   sel.innerHTML = studios.map(s=>`<option value="${escapeHtml(s)}" ${s===selectedStockStudio?'selected':''}>${escapeHtml(s)}</option>`).join('');
 }
 
+// No real stock movement is ever anywhere near this. A value bigger than this is corrupted data
+// (e.g. a past float-precision glitch), not a real count — ignore it everywhere rather than let one
+// bad row make every total built from it meaningless. See the one-time cleanup near init() too.
+const MAX_SANE_STOCK_QTY = 100000;
 function stockQtyFromManual(client, productId){
   let qty = 0;
-  state.stockEntries.filter(e=>e.client===client && e.productId===productId).forEach(e=>{ qty += e.qty; });
+  state.stockEntries
+    .filter(e=>e.client===client && e.productId===productId && Math.abs(e.qty) <= MAX_SANE_STOCK_QTY)
+    .forEach(e=>{ qty += e.qty; });
   return qty;
 }
 // current stock on hand for a studio+product — purely manual input (the +/- taps and direct edits
@@ -4615,6 +4621,7 @@ function renderStockStudioDetail(){
       if(input===null) return;
       const newVal = parseFloat(input);
       if(isNaN(newVal) || newVal<0) return;
+      if(newVal > MAX_SANE_STOCK_QTY){ alert(`That's too large a number (${newVal}) — double check it, stock counts should be well under ${MAX_SANE_STOCK_QTY}.`); return; }
       adjustStock(row, newVal - current, 'Adjusted directly');
     });
   });
@@ -4683,7 +4690,7 @@ function renderStockSoldSection(){
     return;
   }
   whoLabel.textContent = ` — ${selectedStockStudio}`;
-  const sales = state.stockEntries.filter(e=>e.client===selectedStockStudio && e.qty<0);
+  const sales = state.stockEntries.filter(e=>e.client===selectedStockStudio && e.qty<0 && Math.abs(e.qty) <= MAX_SANE_STOCK_QTY);
   if(sales.length===0){
     wrap.innerHTML = '';
     empty.style.display = 'block';
@@ -4788,6 +4795,11 @@ function renderStockView(){
         const client = input.dataset.client;
         const productId = input.dataset.product;
         const newVal = parseFloat(input.value) || 0;
+        if(newVal > MAX_SANE_STOCK_QTY){
+          alert(`That's too large a number (${newVal}) — double check it, stock counts should be well under ${MAX_SANE_STOCK_QTY}.`);
+          input.value = currentStockQty(client, productId);
+          return;
+        }
         const currentVal = currentStockQty(client, productId);
         const delta = newVal - currentVal;
         if(delta !== 0){
@@ -4907,6 +4919,22 @@ if(portalTokenFromUrl){
           }
         });
         if(added) await saveInvoices();
+      }
+
+      // One-time self-heal: a past bug in the old "edit any number directly" table view could
+      // write a stock_entries row with a wildly corrupted quantity (a float-precision artifact,
+      // not a real stock count — e.g. 20999999900000000). Left in place, a number that size breaks
+      // later arithmetic (JS can no longer add/subtract ordinary small numbers exactly once a value
+      // this big is in the mix) and shows nonsense in the stock totals and monthly-sold report.
+      // Only runs if sync succeeded, same as the migration above, so it never pushes a stale local
+      // fallback over real data — and only ever removes entries, never changes a real quantity.
+      if(syncSucceeded){
+        const cleanEntries = state.stockEntries.filter(e => Math.abs(e.qty) <= MAX_SANE_STOCK_QTY);
+        if(cleanEntries.length !== state.stockEntries.length){
+          console.warn(`Removed ${state.stockEntries.length - cleanEntries.length} corrupted stock_entries row(s) with an impossibly large quantity.`);
+          state.stockEntries = cleanEntries;
+          await saveStockEntries();
+        }
       }
 
       // Isolated, read-only — wrapped in its own try/catch so that even a
