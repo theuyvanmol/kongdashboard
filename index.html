@@ -4536,10 +4536,20 @@ function populateStockStudioSelect(){
 // (e.g. a past float-precision glitch), not a real count — ignore it everywhere rather than let one
 // bad row make every total built from it meaningless. See the one-time cleanup near init() too.
 const MAX_SANE_STOCK_QTY = 100000;
+// Every real stock move is a whole unit (a +/- tap, or someone typing a whole number as the exact
+// count) — a non-integer qty is always leftover float-precision residue from a past bug, never a
+// real movement. Small residue like -0.9 or -0.00000000999999999998085865 slips past the magnitude
+// check above but still throws off totals and — worse — poisons the "set exact number" feature:
+// it computes delta = newVal - currentQty, so if currentQty carries fractional residue, the delta
+// itself comes out fractional and writes a brand-new corrupted row (this is how "Adjusted directly"
+// rows with values like -5.09999999 got created on top of the original "Adjusted via table" ones).
+function isSaneStockQty(qty){
+  return Number.isFinite(qty) && Math.abs(qty) <= MAX_SANE_STOCK_QTY && Number.isInteger(qty);
+}
 function stockQtyFromManual(client, productId){
   let qty = 0;
   state.stockEntries
-    .filter(e=>e.client===client && e.productId===productId && Math.abs(e.qty) <= MAX_SANE_STOCK_QTY)
+    .filter(e=>e.client===client && e.productId===productId && isSaneStockQty(e.qty))
     .forEach(e=>{ qty += e.qty; });
   return qty;
 }
@@ -4617,12 +4627,12 @@ function renderStockStudioDetail(){
       const row = el.closest('.stock-product-row');
       const p = productById(row.dataset.product);
       const current = Number(el.dataset.qty);
-      const input = prompt(`Set exact stock for "${p?p.name:''}" at ${selectedStockStudio}:`, current);
+      const input = prompt(`Set exact stock for "${p?p.name:''}" at ${selectedStockStudio}:`, Math.round(current));
       if(input===null) return;
-      const newVal = parseFloat(input);
+      const newVal = Math.round(parseFloat(input)); // stock is always whole units
       if(isNaN(newVal) || newVal<0) return;
       if(newVal > MAX_SANE_STOCK_QTY){ alert(`That's too large a number (${newVal}) — double check it, stock counts should be well under ${MAX_SANE_STOCK_QTY}.`); return; }
-      adjustStock(row, newVal - current, 'Adjusted directly');
+      adjustStock(row, newVal - Math.round(current), 'Adjusted directly');
     });
   });
 }
@@ -4634,8 +4644,8 @@ async function adjustStock(row, delta, noteOverride){
   const qtyEl = row.querySelector('.spr-qty');
   const minusBtn = row.querySelector('.spr-btn.minus');
   const current = Number(qtyEl.dataset.qty);
-  let actualDelta = delta;
-  if(current + actualDelta < 0) actualDelta = -current; // never let stock go below zero
+  let actualDelta = Math.round(delta); // stock only ever moves in whole units — round away any float drift
+  if(current + actualDelta < 0) actualDelta = -Math.round(current); // never let stock go below zero
   if(actualDelta === 0) return;
   const newVal = current + actualDelta;
 
@@ -4690,7 +4700,7 @@ function renderStockSoldSection(){
     return;
   }
   whoLabel.textContent = ` — ${selectedStockStudio}`;
-  const sales = state.stockEntries.filter(e=>e.client===selectedStockStudio && e.qty<0 && Math.abs(e.qty) <= MAX_SANE_STOCK_QTY);
+  const sales = state.stockEntries.filter(e=>e.client===selectedStockStudio && e.qty<0 && isSaneStockQty(e.qty));
   if(sales.length===0){
     wrap.innerHTML = '';
     empty.style.display = 'block';
@@ -4794,13 +4804,13 @@ function renderStockView(){
       input.addEventListener('change', async ()=>{
         const client = input.dataset.client;
         const productId = input.dataset.product;
-        const newVal = parseFloat(input.value) || 0;
+        const newVal = Math.round(parseFloat(input.value) || 0); // stock is always whole units
         if(newVal > MAX_SANE_STOCK_QTY){
           alert(`That's too large a number (${newVal}) — double check it, stock counts should be well under ${MAX_SANE_STOCK_QTY}.`);
           input.value = currentStockQty(client, productId);
           return;
         }
-        const currentVal = currentStockQty(client, productId);
+        const currentVal = Math.round(currentStockQty(client, productId));
         const delta = newVal - currentVal;
         if(delta !== 0){
           state.stockEntries.push({ id: uid('stk'), client, productId, qty: delta, date: todayISO(), note: 'Adjusted via table' });
@@ -4922,16 +4932,20 @@ if(portalTokenFromUrl){
       }
 
       // One-time self-heal: a past bug in the old "edit any number directly" table view could
-      // write a stock_entries row with a wildly corrupted quantity (a float-precision artifact,
-      // not a real stock count — e.g. 20999999900000000). Left in place, a number that size breaks
-      // later arithmetic (JS can no longer add/subtract ordinary small numbers exactly once a value
-      // this big is in the mix) and shows nonsense in the stock totals and monthly-sold report.
-      // Only runs if sync succeeded, same as the migration above, so it never pushes a stale local
-      // fallback over real data — and only ever removes entries, never changes a real quantity.
+      // write a stock_entries row with a corrupted quantity — either a wildly oversized
+      // float-precision artifact (e.g. 20999999900000000) or a small fractional residue
+      // (e.g. -0.9, -0.00000000999999999998085865). Left in place, the giant ones break later
+      // arithmetic outright, and the small fractional ones quietly poisoned every total built
+      // from them — including feeding fractional deltas into the "set exact number" feature,
+      // which then wrote its own fresh corrupted rows on top (e.g. -5.09999999). Real stock
+      // movements are always whole units, so anything non-integer or oversized is never a real
+      // count. Only runs if sync succeeded, same as the migration above, so it never pushes a
+      // stale local fallback over real data — and only ever removes entries, never changes a
+      // real quantity.
       if(syncSucceeded){
-        const cleanEntries = state.stockEntries.filter(e => Math.abs(e.qty) <= MAX_SANE_STOCK_QTY);
+        const cleanEntries = state.stockEntries.filter(e => isSaneStockQty(e.qty));
         if(cleanEntries.length !== state.stockEntries.length){
-          console.warn(`Removed ${state.stockEntries.length - cleanEntries.length} corrupted stock_entries row(s) with an impossibly large quantity.`);
+          console.warn(`Removed ${state.stockEntries.length - cleanEntries.length} corrupted stock_entries row(s) with a non-integer or impossibly large quantity.`);
           state.stockEntries = cleanEntries;
           await saveStockEntries();
         }
