@@ -1326,7 +1326,8 @@
     <div class="field-row">
       <div class="field">
         <label>Client name</label>
-        <input type="text" id="ifClient" placeholder="e.g. New Tattoo Studio" />
+        <select id="ifClient"></select>
+        <input type="text" id="ifNewClient" placeholder="Type the new studio's name" style="display:none; margin-top:8px;" />
       </div>
       <div class="field">
         <label>Invoice date</label>
@@ -3607,7 +3608,7 @@ function renderPendingReports(){
       state.studioReports = state.studioReports.filter(r=>r.id!==report.id);
       await saveStudioReports();
       openInvoiceModal(null);
-      document.getElementById('ifClient').value = report.client;
+      populateInvoiceClientSelect(report.client);
       document.getElementById('ifDate').value = new Date().toISOString().slice(0,10);
       modalLines = report.items.map(it=>({ productId: it.productId, qty: it.qty }));
       renderLineItems();
@@ -4213,10 +4214,32 @@ document.getElementById('addLineBtn').addEventListener('click', ()=>{
 });
 document.getElementById('ifDiscount').addEventListener('input', updateTotalsPreview);
 
+// Studio is picked from a dropdown of existing studios so a typo can never silently create a new one.
+// "+ Add new studio…" is the only way to introduce a new name, and it asks for confirmation on save.
+const NEW_STUDIO_VALUE = '__new__';
+function populateInvoiceClientSelect(selectedName){
+  const sel = document.getElementById('ifClient');
+  const names = [...new Set(state.clients.map(c=>c.name).filter(Boolean))];
+  if(selectedName && !names.includes(selectedName)) names.push(selectedName); // editing an old invoice whose studio was removed
+  names.sort((a,b)=>a.localeCompare(b));
+  sel.innerHTML = `<option value="">Select a studio…</option>`
+    + names.map(n=>`<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`).join('')
+    + `<option value="${NEW_STUDIO_VALUE}">+ Add new studio…</option>`;
+  sel.value = selectedName || '';
+  document.getElementById('ifNewClient').style.display = 'none';
+  document.getElementById('ifNewClient').value = '';
+}
+document.getElementById('ifClient').addEventListener('change', ()=>{
+  const isNew = document.getElementById('ifClient').value === NEW_STUDIO_VALUE;
+  const nc = document.getElementById('ifNewClient');
+  nc.style.display = isNew ? 'block' : 'none';
+  if(isNew) nc.focus();
+});
+
 function openInvoiceModal(inv){
   editingInvoiceId = inv ? inv.id : null;
   document.getElementById('invoiceModalTitle').textContent = inv ? 'Edit invoice' : 'Add invoice';
-  document.getElementById('ifClient').value = inv ? inv.client : '';
+  populateInvoiceClientSelect(inv ? inv.client : '');
   document.getElementById('ifDate').value = inv ? inv.date : new Date().toISOString().slice(0,10);
   document.getElementById('ifInvoiceNo').value = inv ? (inv.invoiceNo||'') : '';
   document.getElementById('ifDiscount').value = inv ? (inv.discount||0) : 0;
@@ -4231,8 +4254,18 @@ document.getElementById('ifCancel').addEventListener('click', ()=> invoiceModal.
 invoiceModal.addEventListener('click', (e)=>{ if(e.target===invoiceModal) invoiceModal.classList.remove('show'); });
 
 document.getElementById('ifSave').addEventListener('click', async ()=>{
-  const client = document.getElementById('ifClient').value.trim();
-  if(!client){ document.getElementById('ifClient').focus(); return; }
+  const selVal = document.getElementById('ifClient').value;
+  let client;
+  if(selVal === NEW_STUDIO_VALUE){
+    client = document.getElementById('ifNewClient').value.trim();
+    if(!client){ document.getElementById('ifNewClient').focus(); return; }
+    const existing = state.clients.find(c=>c.name.toLowerCase()===client.toLowerCase());
+    if(existing){ client = existing.name; } // same studio, different capitalisation — reuse it
+    else if(!confirm(`"${client}" is not an existing studio. Create it as a NEW studio?`)) return;
+  } else {
+    client = selVal.trim();
+    if(!client){ document.getElementById('ifClient').focus(); return; }
+  }
   const date = document.getElementById('ifDate').value;
   const invoiceNo = document.getElementById('ifInvoiceNo').value.trim();
   const discount = parseFloat(document.getElementById('ifDiscount').value)||0;
