@@ -149,21 +149,41 @@
 
   /* ---------- live task list ---------- */
   .tk-add{ display:flex; gap:8px; flex-wrap:wrap; }
-  .tk-add input{ flex:1 1 220px; min-width:0; }
-  .tk-add select{ flex:0 0 auto; width:auto; }
+  .tk-add input{ flex:1 1 240px; min-width:0; font-size:15px; }
+  .tk-add select{ flex:0 0 auto; width:auto; font-weight:700; }
   .tk-filters{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-  .tk-chip{ padding:7px 14px; border-radius:999px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); font-family:inherit; }
-  .tk-chip.active{ background:rgba(255,255,255,0.14); color:var(--text-1, #fff); border-color:var(--glass-border-hi); }
-  .tk-col-title{ font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-3); font-weight:700; margin:14px 2px 8px; }
-  .tk-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 12px; margin-bottom:8px; }
-  .tk-row .tk-title{ flex:1 1 200px; min-width:0; font-size:14px; word-break:break-word; }
-  .tk-row.done .tk-title{ text-decoration:line-through; opacity:0.55; }
-  .tk-row select{ font-size:12px; font-weight:700; width:auto; flex:0 0 auto; }
-  .tk-row select.st-todo{ color:var(--coral); }
-  .tk-row select.st-progress{ color:var(--amber); }
-  .tk-row select.st-done{ color:#7be3b0; }
-  .tk-del{ cursor:pointer; opacity:0.6; padding:4px 8px; font-size:16px; line-height:1; background:none; border:none; color:inherit; }
+  .tk-chip{ padding:8px 16px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); font-family:inherit; }
+  .tk-chip.active{ background:rgba(255,255,255,0.16); color:var(--text-1, #fff); border-color:var(--glass-border-hi); }
+  .tk-board{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; align-items:start; }
+  @media (max-width:820px){ .tk-board{ grid-template-columns:1fr; } }
+  .tk-col{ border-radius:16px; padding:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); min-height:90px; }
+  .tk-col-head{ display:flex; justify-content:space-between; align-items:center; font-size:12px; font-weight:800; letter-spacing:0.08em; padding:4px 6px 10px; }
+  .tk-col.todo .tk-col-head{ color:var(--coral); }
+  .tk-col.progress .tk-col-head{ color:var(--amber); }
+  .tk-col.done .tk-col-head{ color:#7be3b0; }
+  .tk-count{ background:rgba(255,255,255,0.1); border-radius:999px; padding:2px 9px; font-size:11px; color:var(--text-2); }
+  .tk-card{ padding:10px; margin-bottom:8px; border-radius:12px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); }
+  .tk-card.done .tk-title-input{ text-decoration:line-through; opacity:0.6; }
+  .tk-title-input{ width:100%; font-size:15px; font-weight:600; background:transparent; border:1px solid transparent; border-radius:8px; padding:6px 8px; box-sizing:border-box; }
+  .tk-title-input:hover{ border-color:var(--glass-border); }
+  .tk-title-input:focus{ border-color:var(--glass-border-hi); background:rgba(255,255,255,0.06); outline:none; }
+  .tk-meta{ display:flex; gap:6px; margin-top:8px; align-items:center; }
+  .tk-meta select{ font-size:12px; font-weight:700; width:auto; flex:1 1 0; min-width:0; padding:7px 8px; }
+  .tk-meta select.st-todo{ color:var(--coral); }
+  .tk-meta select.st-progress{ color:var(--amber); }
+  .tk-meta select.st-done{ color:#7be3b0; }
+  .tk-del{ cursor:pointer; opacity:0.6; padding:6px 10px; font-size:18px; line-height:1; background:none; border:none; color:inherit; flex:0 0 auto; }
   .tk-del:hover{ opacity:1; color:var(--coral); }
+  .tk-empty{ text-align:center; font-size:12.5px; color:var(--text-3); padding:14px 0; }
+  /* ---------- brainstorm canvas ---------- */
+  .bs-canvas{ position:relative; overflow:auto; height:calc(100vh - 190px); min-height:460px; border-radius:16px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); -webkit-overflow-scrolling:touch; }
+  .bs-board{ position:relative; width:3200px; height:2200px; background-image:radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px); background-size:28px 28px; }
+  .bs-note{ position:absolute; width:200px; border-radius:6px; box-shadow:0 8px 22px rgba(0,0,0,0.38); color:#2b2412; display:flex; flex-direction:column; }
+  .bs-note.c0{ background:#ffe37a; } .bs-note.c1{ background:#ffa9c4; } .bs-note.c2{ background:#9fd6ff; } .bs-note.c3{ background:#a9f0b9; } .bs-note.c4{ background:#ffc48a; }
+  .bs-note.dragging{ box-shadow:0 18px 40px rgba(0,0,0,0.5); z-index:50; }
+  .bs-bar{ display:flex; justify-content:space-between; align-items:center; padding:4px 6px; cursor:grab; touch-action:none; background:rgba(0,0,0,0.1); border-radius:6px 6px 0 0; user-select:none; font-size:11px; font-weight:800; letter-spacing:0.08em; }
+  .bs-bar button{ background:none; border:none; cursor:pointer; color:#2b2412; font-size:15px; line-height:1; padding:2px 6px; }
+  .bs-text{ width:100%; box-sizing:border-box; min-height:120px; resize:vertical; border:none; background:transparent; color:#2b2412; font-size:15px; font-family:inherit; padding:8px 10px; outline:none; border-radius:0 0 6px 6px; }
   /* ---------- app sections (Dashboard / Marketing / Task list) ---------- */
   .app-section{ display:none; }
   .app-section.active{ display:block; }
@@ -768,6 +788,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
         <span>Task list</span>
       </button>
+      <button class="tab" data-section="brainstorm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0012 2z"/></svg>
+        <span>Brainstorm</span>
+      </button>
     </div>
   </nav>
 
@@ -1326,16 +1350,29 @@
   <!-- ================= TASK LIST SECTION ================= -->
   <div class="app-section" id="section-tasklist">
     <div class="section-head"><h2>Task list</h2></div>
-    <div class="glass" style="padding:16px; margin-bottom:14px;">
+    <div class="glass" style="padding:14px; margin-bottom:12px;">
       <div class="tk-add">
-        <input type="text" id="tkNewTitle" placeholder="New task…" maxlength="200" />
-        <select id="tkNewAssignee"></select>
-        <button class="btn primary" id="tkAddBtn">Add task</button>
+        <input type="text" id="tkNewTitle" placeholder="Type a new task, then press Add…" maxlength="200" />
+        <select id="tkNewAssignee" aria-label="Who is it for"></select>
+        <button class="btn primary" id="tkAddBtn">+ Add task</button>
       </div>
     </div>
     <div class="tk-filters" id="tkFilters"></div>
     <div id="tkSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
-    <div id="tkList"></div>
+    <div class="tk-board" id="tkList"></div>
+  </div>
+
+  <!-- ================= BRAINSTORM SECTION ================= -->
+  <div class="app-section" id="section-brainstorm">
+    <div class="section-head">
+      <h2>Brainstorm</h2>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <span style="font-size:12px; color:var(--text-3);">Double-tap the canvas or press the button to add a note. Drag a note by its top bar.</span>
+        <button class="btn primary" id="bsAddBtn">+ Add sticky note</button>
+      </div>
+    </div>
+    <div id="bsSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
+    <div class="bs-canvas" id="bsCanvas"><div class="bs-board" id="bsBoard"></div></div>
   </div>
 
   </div>
@@ -4224,25 +4261,24 @@ function renderTasks(){
     if(cb) cb.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(TASKS_SETUP_SQL); cb.textContent='Copied!'; }catch(e){ cb.textContent='Select the text below and copy it'; } });
   } else setup.style.display = 'none';
 
-  document.getElementById('tkNewAssignee').innerHTML = taskOptionsHtml(TASK_PEOPLE, document.getElementById('tkNewAssignee').value || TASK_PEOPLE[0]);
-  const filters = document.getElementById('tkFilters');
-  filters.innerHTML = ['ALL',...TASK_PEOPLE].map(p=>`<button type="button" class="tk-chip ${taskState.filter===p?'active':''}" data-f="${p}">${p==='ALL'?'Everyone':p}</button>`).join('');
+  const na = document.getElementById('tkNewAssignee');
+  na.innerHTML = taskOptionsHtml(TASK_PEOPLE, na.value || TASK_PEOPLE[0]);
+  document.getElementById('tkFilters').innerHTML = ['ALL',...TASK_PEOPLE].map(p=>`<button type="button" class="tk-chip ${taskState.filter===p?'active':''}" data-f="${p}">${p==='ALL'?'Everyone':p}</button>`).join('');
 
   const shown = taskState.items.filter(t=> taskState.filter==='ALL' || t.assignee===taskState.filter);
-  if(!shown.length){
-    listEl.innerHTML = `<div class="glass" style="padding:24px; text-align:center; font-size:13px; color:var(--text-3);">No tasks here yet.</div>`;
-    return;
-  }
   listEl.innerHTML = TASK_STATUSES.map(([sv,sl])=>{
     const rows = shown.filter(t=>t.status===sv);
-    if(!rows.length) return '';
-    return `<div class="tk-col-title">${sl} · ${rows.length}</div>` + rows.map(t=>`
-      <div class="glass tk-row ${t.status==='done'?'done':''}" data-id="${t.id}">
-        <div class="tk-title">${escapeHtml(t.title)}</div>
-        <select class="tk-assignee">${taskOptionsHtml(TASK_PEOPLE, t.assignee)}</select>
-        <select class="tk-status st-${t.status}">${taskOptionsHtml(TASK_STATUSES, t.status)}</select>
-        <button type="button" class="tk-del" title="Delete task" aria-label="Delete task">×</button>
-      </div>`).join('');
+    return `<div class="tk-col ${sv}"><div class="tk-col-head"><span>${sl}</span><span class="tk-count">${rows.length}</span></div>`
+      + (rows.length ? rows.map(t=>`
+      <div class="tk-card ${t.status==='done'?'done':''}" data-id="${t.id}">
+        <input type="text" class="tk-title-input" value="${escapeHtml(t.title)}" maxlength="200" aria-label="Task title — tap to edit" />
+        <div class="tk-meta">
+          <select class="tk-assignee" aria-label="Who">${taskOptionsHtml(TASK_PEOPLE, t.assignee)}</select>
+          <select class="tk-status st-${t.status}" aria-label="Status">${taskOptionsHtml(TASK_STATUSES, t.status)}</select>
+          <button type="button" class="tk-del" title="Delete task" aria-label="Delete task">×</button>
+        </div>
+      </div>`).join('') : `<div class="tk-empty">Nothing here</div>`)
+      + `</div>`;
   }).join('');
 }
 async function addTaskFromForm(){
@@ -4262,8 +4298,16 @@ document.getElementById('tkFilters').addEventListener('click', e=>{
   taskState.filter = b.dataset.f; renderTasks();
 });
 document.getElementById('tkList').addEventListener('change', async e=>{
-  const row = e.target.closest('.tk-row'); if(!row) return;
+  const row = e.target.closest('.tk-card'); if(!row) return;
   const t = taskState.items.find(x=>x.id===row.dataset.id); if(!t) return;
+  if(e.target.classList.contains('tk-title-input')){
+    const v = e.target.value.trim();
+    if(!v){ e.target.value = t.title; return; } // never save an empty title
+    if(v === t.title) return;
+    t.title = v;
+    await saveTask(t);
+    return;
+  }
   if(e.target.classList.contains('tk-assignee')) t.assignee = e.target.value;
   else if(e.target.classList.contains('tk-status')) t.status = e.target.value;
   else return;
@@ -4272,7 +4316,7 @@ document.getElementById('tkList').addEventListener('change', async e=>{
 });
 document.getElementById('tkList').addEventListener('click', async e=>{
   if(!e.target.closest('.tk-del')) return;
-  const row = e.target.closest('.tk-row');
+  const row = e.target.closest('.tk-card');
   const t = taskState.items.find(x=>x.id===row.dataset.id); if(!t) return;
   if(!confirm(`Delete task "${t.title}"?`)) return;
   taskState.items = taskState.items.filter(x=>x.id!==t.id);
@@ -4291,6 +4335,155 @@ function setupTaskRealtime(){
       .subscribe();
   }catch(e){ console.error('task realtime failed', e); }
   setInterval(()=>{ const a=document.activeElement; if(!document.hidden && !(a && (a.tagName==='INPUT'||a.tagName==='SELECT'))) loadTasks(); }, 30000);
+}
+
+document.getElementById('tkList').addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target.classList.contains('tk-title-input')) e.target.blur(); });
+
+// ---------- Brainstorm (sticky-note canvas, isolated + live) ----------
+// Own `kong_notes` table, single-row upserts/deletes only — same isolation as the Task list.
+const NOTE_COLORS = 5;
+const NOTES_SETUP_SQL = `create table if not exists public.kong_notes (
+  id text primary key,
+  text text not null default '',
+  x integer not null default 0,
+  y integer not null default 0,
+  color integer not null default 0,
+  created_at timestamptz not null default now()
+);
+alter table public.kong_notes enable row level security;
+create policy "kong_notes all" on public.kong_notes for all using (true) with check (true);
+alter publication supabase_realtime add table public.kong_notes;`;
+const noteState = { items: [], missing: false, busy: 0 }; // busy>0 while dragging/typing: don't re-render under the user
+function noteFromRow(r){ return { id:r.id, text:r.text||'', x:Number(r.x)||0, y:Number(r.y)||0, color:(Number(r.color)||0)%NOTE_COLORS }; }
+function noteToRow(n){ return { id:n.id, text:n.text, x:Math.round(n.x), y:Math.round(n.y), color:n.color }; }
+async function loadNotes(){
+  try{
+    const { data, error } = await sb.from('kong_notes').select('*').order('created_at', { ascending:true });
+    if(error) throw error;
+    noteState.items = (data||[]).map(noteFromRow);
+    noteState.missing = false;
+  }catch(e){ console.error('loadNotes failed', e); noteState.missing = true; }
+  renderNotes();
+}
+async function saveNote(n){
+  const { error } = await sb.from('kong_notes').upsert(noteToRow(n), { onConflict:'id' });
+  if(error){ console.error('save note failed', error); noteState.missing = true; renderNotes(); }
+}
+async function deleteNote(id){
+  const { error } = await sb.from('kong_notes').delete().eq('id', id);
+  if(error){ console.error('delete note failed', error); alert('Could not delete that note — try again.'); loadNotes(); }
+}
+function renderNotes(){
+  const board = document.getElementById('bsBoard');
+  if(!board) return;
+  const setup = document.getElementById('bsSetupMsg');
+  if(noteState.missing){
+    setup.style.display = 'block';
+    setup.innerHTML = `<b>One-time setup needed:</b> Brainstorm needs its own table in Supabase. Open Supabase → SQL Editor, paste this, and press Run — then reload this page.<div style="margin:10px 0;"><button type="button" class="btn small" id="bsCopySql">Copy the SQL</button></div><pre style="white-space:pre-wrap; font-size:11px; margin:0; user-select:all;">${escapeHtml(NOTES_SETUP_SQL)}</pre>`;
+    const cb = document.getElementById('bsCopySql');
+    if(cb) cb.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(NOTES_SETUP_SQL); cb.textContent='Copied!'; }catch(e){ cb.textContent='Select the text below and copy it'; } });
+  } else setup.style.display = 'none';
+  board.innerHTML = noteState.items.map(n=>`
+    <div class="bs-note c${n.color}" data-id="${n.id}" style="left:${n.x}px; top:${n.y}px;">
+      <div class="bs-bar"><button type="button" class="bs-color" title="Change colour" aria-label="Change colour">●</button><span>DRAG</span><button type="button" class="bs-del" title="Delete note" aria-label="Delete note">×</button></div>
+      <textarea class="bs-text" placeholder="Type an idea…" maxlength="1000">${escapeHtml(n.text)}</textarea>
+    </div>`).join('');
+}
+function newNoteAt(x, y){
+  const n = { id: uid('note'), text:'', x:Math.max(0,Math.round(x)), y:Math.max(0,Math.round(y)), color: noteState.items.length % NOTE_COLORS };
+  noteState.items.push(n);
+  renderNotes();
+  saveNote(n);
+  const ta = document.querySelector(`.bs-note[data-id="${n.id}"] .bs-text`);
+  if(ta) ta.focus();
+}
+document.getElementById('bsAddBtn').addEventListener('click', ()=>{
+  const c = document.getElementById('bsCanvas');
+  const jitter = () => Math.round((Math.random()-0.5)*80);
+  newNoteAt(c.scrollLeft + c.clientWidth/2 - 100 + jitter(), c.scrollTop + c.clientHeight/2 - 80 + jitter());
+});
+document.getElementById('bsBoard').addEventListener('dblclick', e=>{
+  if(e.target.id !== 'bsBoard') return;
+  const r = e.currentTarget.getBoundingClientRect();
+  newNoteAt(e.clientX - r.left - 100, e.clientY - r.top - 20);
+});
+// double-tap on touch screens (dblclick isn't reliable there)
+(function(){
+  let lastTap = 0;
+  document.getElementById('bsBoard').addEventListener('pointerup', e=>{
+    if(e.pointerType !== 'touch' || e.target.id !== 'bsBoard') return;
+    const now = Date.now();
+    if(now - lastTap < 350){
+      const r = e.currentTarget.getBoundingClientRect();
+      newNoteAt(e.clientX - r.left - 100, e.clientY - r.top - 20);
+      lastTap = 0;
+    } else lastTap = now;
+  });
+})();
+// text: save when you click/tap away
+document.getElementById('bsBoard').addEventListener('focusin', e=>{ if(e.target.classList.contains('bs-text')) noteState.busy++; });
+document.getElementById('bsBoard').addEventListener('focusout', async e=>{
+  if(!e.target.classList.contains('bs-text')) return;
+  noteState.busy = Math.max(0, noteState.busy-1);
+  const note = e.target.closest('.bs-note'); if(!note) return;
+  const n = noteState.items.find(x=>x.id===note.dataset.id); if(!n) return;
+  if(n.text !== e.target.value){ n.text = e.target.value; await saveNote(n); }
+});
+document.getElementById('bsBoard').addEventListener('click', async e=>{
+  const note = e.target.closest('.bs-note'); if(!note) return;
+  const n = noteState.items.find(x=>x.id===note.dataset.id); if(!n) return;
+  if(e.target.closest('.bs-del')){
+    const hasText = (note.querySelector('.bs-text').value||'').trim();
+    if(hasText && !confirm('Delete this note?')) return;
+    noteState.items = noteState.items.filter(x=>x.id!==n.id);
+    note.remove();
+    await deleteNote(n.id);
+  } else if(e.target.closest('.bs-color')){
+    n.color = (n.color+1) % NOTE_COLORS;
+    note.className = `bs-note c${n.color}`;
+    await saveNote(n);
+  }
+});
+// drag by the top bar (mouse + touch + pen)
+(function(){
+  let drag = null;
+  const board = document.getElementById('bsBoard');
+  board.addEventListener('pointerdown', e=>{
+    const bar = e.target.closest('.bs-bar');
+    if(!bar || e.target.closest('button')) return;
+    const note = bar.closest('.bs-note');
+    const n = noteState.items.find(x=>x.id===note.dataset.id); if(!n) return;
+    drag = { n, note, sx:e.clientX, sy:e.clientY, ox:n.x, oy:n.y };
+    noteState.busy++;
+    note.classList.add('dragging');
+    bar.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  board.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    drag.n.x = Math.min(3000, Math.max(0, drag.ox + e.clientX - drag.sx));
+    drag.n.y = Math.min(2050, Math.max(0, drag.oy + e.clientY - drag.sy));
+    drag.note.style.left = drag.n.x+'px'; drag.note.style.top = drag.n.y+'px';
+  });
+  const end = async ()=>{
+    if(!drag) return;
+    const d = drag; drag = null;
+    d.note.classList.remove('dragging');
+    noteState.busy = Math.max(0, noteState.busy-1);
+    if(d.n.x !== d.ox || d.n.y !== d.oy) await saveNote(d.n);
+  };
+  board.addEventListener('pointerup', end);
+  board.addEventListener('pointercancel', end);
+})();
+function setupNoteRealtime(){
+  let t = null;
+  const refresh = () => { if(noteState.busy > 0){ t = setTimeout(refresh, 2000); return; } loadNotes(); };
+  try{
+    sb.channel('kong-notes')
+      .on('postgres_changes', { event:'*', schema:'public', table:'kong_notes' }, ()=>{ clearTimeout(t); t = setTimeout(refresh, 300); })
+      .subscribe();
+  }catch(e){ console.error('note realtime failed', e); }
+  setInterval(()=>{ if(!document.hidden && noteState.busy===0) loadNotes(); }, 30000);
 }
 
 // ---------- Marketing sub-tabs (Overview / Instagram / Website) ----------
@@ -5144,6 +5337,7 @@ if(portalTokenFromUrl){
 
       // Task list is fully isolated (own table, own error handling) — can't stop the dashboard above.
       try{ await loadTasks(); setupTaskRealtime(); }catch(e){ console.error('tasks init failed', e); }
+      try{ await loadNotes(); setupNoteRealtime(); }catch(e){ console.error('notes init failed', e); }
 
       renderAll();
       setupStockScrollSlider();
