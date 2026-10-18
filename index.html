@@ -70,6 +70,7 @@
 
   .app{ flex:1; min-width:0; max-width:1180px; margin:0 auto; padding:24px 20px 90px; position:relative; }
   @media (max-width: 880px){ .app{ margin:0; } }
+  .app.wide{ max-width:none; margin:0; }
   @media (min-width:600px){ .app{ padding:32px 28px 90px; } }
 
   .topbar{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; flex-wrap:wrap; gap:14px; }
@@ -176,13 +177,22 @@
   .tk-del:hover{ opacity:1; color:var(--coral); }
   .tk-empty{ text-align:center; font-size:12.5px; color:var(--text-3); padding:14px 0; }
   /* ---------- brainstorm canvas ---------- */
-  .bs-canvas{ position:relative; overflow:auto; height:calc(100vh - 190px); min-height:460px; border-radius:16px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); -webkit-overflow-scrolling:touch; }
+  .bs-canvas{ position:relative; overflow:auto; height:calc(100vh - 150px); min-height:480px; border-radius:16px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); -webkit-overflow-scrolling:touch; }
   .bs-board{ position:relative; width:3200px; height:2200px; background-image:radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px); background-size:28px 28px; }
   .bs-note{ position:absolute; width:200px; border-radius:6px; box-shadow:0 8px 22px rgba(0,0,0,0.38); color:#2b2412; display:flex; flex-direction:column; }
   .bs-note.c0{ background:#ffe37a; } .bs-note.c1{ background:#ffa9c4; } .bs-note.c2{ background:#9fd6ff; } .bs-note.c3{ background:#a9f0b9; } .bs-note.c4{ background:#ffc48a; }
   .bs-note.dragging{ box-shadow:0 18px 40px rgba(0,0,0,0.5); z-index:50; }
   .bs-bar{ display:flex; justify-content:space-between; align-items:center; padding:4px 6px; cursor:grab; touch-action:none; background:rgba(0,0,0,0.1); border-radius:6px 6px 0 0; user-select:none; font-size:11px; font-weight:800; letter-spacing:0.08em; }
   .bs-bar button{ background:none; border:none; cursor:pointer; color:#2b2412; font-size:15px; line-height:1; padding:2px 6px; }
+  .bs-lines{ position:absolute; left:0; top:0; width:3200px; height:2200px; pointer-events:none; z-index:0; }
+  .bs-note{ z-index:1; }
+  .bs-line{ stroke:rgba(255,255,255,0.7); stroke-width:2.5; stroke-linecap:round; }
+  .bs-line-x{ pointer-events:all; cursor:pointer; fill:rgba(20,24,28,0.9); stroke:rgba(255,255,255,0.7); stroke-width:1.5; }
+  .bs-line-xt{ pointer-events:none; fill:#fff; font-size:12px; text-anchor:middle; dominant-baseline:central; font-weight:800; }
+  .bs-note.link-from{ outline:3px solid #fff; outline-offset:3px; }
+  .bs-canvas.linking{ cursor:crosshair; }
+  .bs-canvas.linking .bs-note:not(.link-from){ cursor:pointer; }
+  .bs-banner{ position:sticky; top:8px; left:8px; z-index:60; display:none; width:max-content; max-width:calc(100% - 16px); margin:8px; padding:8px 14px; border-radius:999px; background:#fff; color:#1a1a1a; font-size:12.5px; font-weight:700; box-shadow:0 6px 18px rgba(0,0,0,0.4); }
   .bs-text{ width:100%; box-sizing:border-box; min-height:120px; resize:vertical; border:none; background:transparent; color:#2b2412; font-size:15px; font-family:inherit; padding:8px 10px; outline:none; border-radius:0 0 6px 6px; }
   /* ---------- app sections (Dashboard / Marketing / Task list) ---------- */
   .app-section{ display:none; }
@@ -1367,12 +1377,12 @@
     <div class="section-head">
       <h2>Brainstorm</h2>
       <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <span style="font-size:12px; color:var(--text-3);">Double-tap the canvas or press the button to add a note. Drag a note by its top bar.</span>
+        <span style="font-size:12px; color:var(--text-3);">Double-tap the canvas to add a note · drag by the top bar · ⇢ connects two notes.</span>
         <button class="btn primary" id="bsAddBtn">+ Add sticky note</button>
       </div>
     </div>
     <div id="bsSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
-    <div class="bs-canvas" id="bsCanvas"><div class="bs-board" id="bsBoard"></div></div>
+    <div class="bs-canvas" id="bsCanvas"><div class="bs-banner" id="bsBanner"></div><div class="bs-board" id="bsBoard"></div></div>
   </div>
 
   </div>
@@ -4197,6 +4207,7 @@ document.getElementById('sectionNav').addEventListener('click', (e)=>{
   const section = btn.dataset.section;
   document.querySelectorAll('.app-section').forEach(s=>s.classList.remove('active'));
   document.getElementById('section-'+section).classList.add('active');
+  document.querySelector('.app').classList.toggle('wide', section==='brainstorm'); // canvas uses the whole width
   closeSidebar();
 });
 
@@ -4353,7 +4364,16 @@ const NOTES_SETUP_SQL = `create table if not exists public.kong_notes (
 alter table public.kong_notes enable row level security;
 create policy "kong_notes all" on public.kong_notes for all using (true) with check (true);
 alter publication supabase_realtime add table public.kong_notes;`;
-const noteState = { items: [], missing: false, busy: 0 }; // busy>0 while dragging/typing: don't re-render under the user
+const LINKS_SETUP_SQL = `create table if not exists public.kong_note_links (
+  id text primary key,
+  from_id text not null,
+  to_id text not null,
+  created_at timestamptz not null default now()
+);
+alter table public.kong_note_links enable row level security;
+create policy "kong_note_links all" on public.kong_note_links for all using (true) with check (true);
+alter publication supabase_realtime add table public.kong_note_links;`;
+const noteState = { items: [], links: [], missing: false, linksMissing: false, busy: 0, linkFrom: null }; // busy>0 while dragging/typing: don't re-render under the user
 function noteFromRow(r){ return { id:r.id, text:r.text||'', x:Number(r.x)||0, y:Number(r.y)||0, color:(Number(r.color)||0)%NOTE_COLORS }; }
 function noteToRow(n){ return { id:n.id, text:n.text, x:Math.round(n.x), y:Math.round(n.y), color:n.color }; }
 async function loadNotes(){
@@ -4363,6 +4383,12 @@ async function loadNotes(){
     noteState.items = (data||[]).map(noteFromRow);
     noteState.missing = false;
   }catch(e){ console.error('loadNotes failed', e); noteState.missing = true; }
+  try{
+    const { data, error } = await sb.from('kong_note_links').select('*');
+    if(error) throw error;
+    noteState.links = (data||[]).map(r=>({ id:r.id, from:r.from_id, to:r.to_id }));
+    noteState.linksMissing = false;
+  }catch(e){ console.error('loadLinks failed', e); noteState.linksMissing = true; }
   renderNotes();
 }
 async function saveNote(n){
@@ -4382,12 +4408,57 @@ function renderNotes(){
     setup.innerHTML = `<b>One-time setup needed:</b> Brainstorm needs its own table in Supabase. Open Supabase → SQL Editor, paste this, and press Run — then reload this page.<div style="margin:10px 0;"><button type="button" class="btn small" id="bsCopySql">Copy the SQL</button></div><pre style="white-space:pre-wrap; font-size:11px; margin:0; user-select:all;">${escapeHtml(NOTES_SETUP_SQL)}</pre>`;
     const cb = document.getElementById('bsCopySql');
     if(cb) cb.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(NOTES_SETUP_SQL); cb.textContent='Copied!'; }catch(e){ cb.textContent='Select the text below and copy it'; } });
+  } else if(noteState.linksMissing){
+    setup.style.display = 'block';
+    setup.innerHTML = `<b>One more one-time step to enable connecting lines:</b> open Supabase → SQL Editor, paste this, press Run, then reload.<div style="margin:10px 0;"><button type="button" class="btn small" id="bsCopySql2">Copy the SQL</button></div><pre style="white-space:pre-wrap; font-size:11px; margin:0; user-select:all;">${escapeHtml(LINKS_SETUP_SQL)}</pre>`;
+    const cb2 = document.getElementById('bsCopySql2');
+    if(cb2) cb2.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(LINKS_SETUP_SQL); cb2.textContent='Copied!'; }catch(e){ cb2.textContent='Select the text below and copy it'; } });
   } else setup.style.display = 'none';
-  board.innerHTML = noteState.items.map(n=>`
+  board.innerHTML = `<svg class="bs-lines" id="bsLines" xmlns="http://www.w3.org/2000/svg"></svg>` + noteState.items.map(n=>`
     <div class="bs-note c${n.color}" data-id="${n.id}" style="left:${n.x}px; top:${n.y}px;">
-      <div class="bs-bar"><button type="button" class="bs-color" title="Change colour" aria-label="Change colour">●</button><span>DRAG</span><button type="button" class="bs-del" title="Delete note" aria-label="Delete note">×</button></div>
+      <div class="bs-bar"><span><button type="button" class="bs-color" title="Change colour" aria-label="Change colour">●</button><button type="button" class="bs-link" title="Connect to another note" aria-label="Connect to another note">⇢</button></span><span>DRAG</span><button type="button" class="bs-del" title="Delete note" aria-label="Delete note">×</button></div>
       <textarea class="bs-text" placeholder="Type an idea…" maxlength="1000">${escapeHtml(n.text)}</textarea>
     </div>`).join('');
+  drawLinks();
+  updateLinkMode();
+  if(window.ResizeObserver){
+    if(!noteState.ro) noteState.ro = new ResizeObserver(()=>drawLinks());
+    noteState.ro.disconnect();
+    board.querySelectorAll('.bs-note').forEach(el=>noteState.ro.observe(el));
+  }
+}
+function drawLinks(){
+  const svg = document.getElementById('bsLines'); if(!svg) return;
+  const parts = [];
+  noteState.links.forEach(l=>{
+    const a = noteState.items.find(n=>n.id===l.from), b = noteState.items.find(n=>n.id===l.to);
+    const ea = document.querySelector(`.bs-note[data-id="${l.from}"]`), eb = document.querySelector(`.bs-note[data-id="${l.to}"]`);
+    if(!a || !b || !ea || !eb) return;
+    const x1 = a.x + ea.offsetWidth/2, y1 = a.y + ea.offsetHeight/2, x2 = b.x + eb.offsetWidth/2, y2 = b.y + eb.offsetHeight/2;
+    const mx = (x1+x2)/2, my = (y1+y2)/2;
+    parts.push(`<line class="bs-line" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`
+      + `<circle class="bs-line-x" data-link="${l.id}" cx="${mx}" cy="${my}" r="10"><title>Remove this line</title></circle><text class="bs-line-xt" x="${mx}" y="${my}">×</text>`);
+  });
+  svg.innerHTML = parts.join('');
+}
+function updateLinkMode(){
+  const c = document.getElementById('bsCanvas'), banner = document.getElementById('bsBanner');
+  c.classList.toggle('linking', !!noteState.linkFrom);
+  banner.style.display = noteState.linkFrom ? 'block' : 'none';
+  banner.textContent = 'Now tap the note you want to connect to (tap the same one, or empty space, to cancel)';
+  document.querySelectorAll('.bs-note').forEach(el=>el.classList.toggle('link-from', el.dataset.id===noteState.linkFrom));
+}
+async function toggleLink(aId, bId){
+  const existing = noteState.links.find(l=>(l.from===aId&&l.to===bId)||(l.from===bId&&l.to===aId));
+  if(existing){
+    noteState.links = noteState.links.filter(l=>l.id!==existing.id); drawLinks();
+    await sb.from('kong_note_links').delete().eq('id', existing.id);
+    return;
+  }
+  const l = { id: uid('lnk'), from:aId, to:bId };
+  noteState.links.push(l); drawLinks();
+  const { error } = await sb.from('kong_note_links').upsert({ id:l.id, from_id:l.from, to_id:l.to }, { onConflict:'id' });
+  if(error){ console.error('save link failed', error); noteState.links = noteState.links.filter(x=>x.id!==l.id); noteState.linksMissing = true; renderNotes(); }
 }
 function newNoteAt(x, y){
   const n = { id: uid('note'), text:'', x:Math.max(0,Math.round(x)), y:Math.max(0,Math.round(y)), color: noteState.items.length % NOTE_COLORS };
@@ -4430,14 +4501,37 @@ document.getElementById('bsBoard').addEventListener('focusout', async e=>{
   if(n.text !== e.target.value){ n.text = e.target.value; await saveNote(n); }
 });
 document.getElementById('bsBoard').addEventListener('click', async e=>{
-  const note = e.target.closest('.bs-note'); if(!note) return;
+  const lx = e.target.closest && e.target.closest('.bs-line-x');
+  if(lx){
+    const id = lx.dataset.link;
+    noteState.links = noteState.links.filter(l=>l.id!==id); drawLinks();
+    await sb.from('kong_note_links').delete().eq('id', id);
+    return;
+  }
+  const note = e.target.closest('.bs-note');
+  if(noteState.linkFrom){
+    const from = noteState.linkFrom;
+    if(note && note.dataset.id !== from && !e.target.closest('.bs-del')){
+      noteState.linkFrom = null; updateLinkMode();
+      if(document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      await toggleLink(from, note.dataset.id);
+    } else if(!note || note.dataset.id === from){
+      noteState.linkFrom = null; updateLinkMode();
+    }
+    return;
+  }
+  if(!note) return;
+  if(e.target.closest('.bs-link')){ noteState.linkFrom = note.dataset.id; updateLinkMode(); return; }
   const n = noteState.items.find(x=>x.id===note.dataset.id); if(!n) return;
   if(e.target.closest('.bs-del')){
     const hasText = (note.querySelector('.bs-text').value||'').trim();
     if(hasText && !confirm('Delete this note?')) return;
+    const gone = noteState.links.filter(l=>l.from===n.id||l.to===n.id);
+    noteState.links = noteState.links.filter(l=>l.from!==n.id&&l.to!==n.id);
     noteState.items = noteState.items.filter(x=>x.id!==n.id);
-    note.remove();
+    note.remove(); drawLinks();
     await deleteNote(n.id);
+    for(const l of gone) await sb.from('kong_note_links').delete().eq('id', l.id);
   } else if(e.target.closest('.bs-color')){
     n.color = (n.color+1) % NOTE_COLORS;
     note.className = `bs-note c${n.color}`;
@@ -4463,7 +4557,7 @@ document.getElementById('bsBoard').addEventListener('click', async e=>{
     if(!drag) return;
     drag.n.x = Math.min(3000, Math.max(0, drag.ox + e.clientX - drag.sx));
     drag.n.y = Math.min(2050, Math.max(0, drag.oy + e.clientY - drag.sy));
-    drag.note.style.left = drag.n.x+'px'; drag.note.style.top = drag.n.y+'px';
+    drag.note.style.left = drag.n.x+'px'; drag.note.style.top = drag.n.y+'px'; drawLinks();
   });
   const end = async ()=>{
     if(!drag) return;
@@ -4475,12 +4569,16 @@ document.getElementById('bsBoard').addEventListener('click', async e=>{
   board.addEventListener('pointerup', end);
   board.addEventListener('pointercancel', end);
 })();
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && noteState.linkFrom){ noteState.linkFrom=null; updateLinkMode(); } });
 function setupNoteRealtime(){
   let t = null;
   const refresh = () => { if(noteState.busy > 0){ t = setTimeout(refresh, 2000); return; } loadNotes(); };
   try{
     sb.channel('kong-notes')
       .on('postgres_changes', { event:'*', schema:'public', table:'kong_notes' }, ()=>{ clearTimeout(t); t = setTimeout(refresh, 300); })
+      .subscribe();
+    sb.channel('kong-note-links')
+      .on('postgres_changes', { event:'*', schema:'public', table:'kong_note_links' }, ()=>{ clearTimeout(t); t = setTimeout(refresh, 300); })
       .subscribe();
   }catch(e){ console.error('note realtime failed', e); }
   setInterval(()=>{ if(!document.hidden && noteState.busy===0) loadNotes(); }, 30000);
