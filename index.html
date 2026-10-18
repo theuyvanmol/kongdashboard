@@ -4199,7 +4199,12 @@ async function loadTasks(){
 }
 async function saveTask(t){
   const { error } = await sb.from('tasks').upsert(taskToRow(t), { onConflict:'id' });
-  if(error){ console.error('save task failed', error); alert('Could not save that task — check your connection and try again.'); loadTasks(); }
+  if(error){
+    console.error('save task failed', error);
+    const tableMissing = /relation|does not exist|schema cache|PGRST205|42P01/i.test((error.message||'')+(error.code||''));
+    if(tableMissing){ taskState.missing = true; renderTasks(); alert('The Task list needs its one-time setup first. The setup steps are now shown at the top of the Task list — copy the SQL there into Supabase and run it.'); }
+    else { alert('Could not save that task — check your connection and try again.'); loadTasks(); }
+  }
 }
 async function deleteTask(id){
   const { error } = await sb.from('tasks').delete().eq('id', id);
@@ -4214,7 +4219,9 @@ function renderTasks(){
   const setup = document.getElementById('tkSetupMsg');
   if(taskState.missing){
     setup.style.display = 'block';
-    setup.innerHTML = `<b>One-time setup needed:</b> the Task list needs its own table in Supabase. Open Supabase → SQL Editor, paste this, and press Run — then reload this page.<pre style="white-space:pre-wrap; font-size:11px; margin:10px 0 0; user-select:all;">${escapeHtml(TASKS_SETUP_SQL)}</pre>`;
+    setup.innerHTML = `<b>One-time setup needed:</b> the Task list needs its own table in Supabase. Open Supabase → SQL Editor, paste this, and press Run — then reload this page.<div style="margin:10px 0;"><button type="button" class="btn small" id="tkCopySql">Copy the SQL</button></div><pre style="white-space:pre-wrap; font-size:11px; margin:0; user-select:all;">${escapeHtml(TASKS_SETUP_SQL)}</pre>`;
+    const cb = document.getElementById('tkCopySql');
+    if(cb) cb.addEventListener('click', async ()=>{ try{ await navigator.clipboard.writeText(TASKS_SETUP_SQL); cb.textContent='Copied!'; }catch(e){ cb.textContent='Select the text below and copy it'; } });
   } else setup.style.display = 'none';
 
   document.getElementById('tkNewAssignee').innerHTML = taskOptionsHtml(TASK_PEOPLE, document.getElementById('tkNewAssignee').value || TASK_PEOPLE[0]);
