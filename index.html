@@ -4164,29 +4164,29 @@ document.getElementById('sectionNav').addEventListener('click', (e)=>{
 });
 
 // ---------- Task list (isolated, live) ----------
-// Its own `tasks` table, its own load/save/realtime — deliberately NOT part of TABLE_MAP/loadState,
+// Its own `kong_tasks` table (the older `tasks` table in Supabase has a different shape and is left alone), its own load/save/realtime — deliberately NOT part of TABLE_MAP/loadState,
 // so nothing here can ever affect (or be affected by) the sales data. Writes are single-row only:
 // upsert the one task that changed, delete the one task removed. Never a bulk write.
 const TASK_PEOPLE = ['TONY','TIP','THEUY'];
 const TASK_STATUSES = [ ['todo','TO DO'], ['progress','IN PROGRESS'], ['done','DONE'] ];
 const taskState = { items: [], filter: 'ALL', ready: false, missing: false };
-const TASKS_SETUP_SQL = `create table if not exists public.tasks (
+const TASKS_SETUP_SQL = `create table if not exists public.kong_tasks (
   id text primary key,
   title text not null default '',
   assignee text not null default 'TONY',
   status text not null default 'todo',
   created_at timestamptz not null default now()
 );
-alter table public.tasks enable row level security;
-create policy "tasks all" on public.tasks for all using (true) with check (true);
-alter publication supabase_realtime add table public.tasks;`;
+alter table public.kong_tasks enable row level security;
+create policy "kong_tasks all" on public.kong_tasks for all using (true) with check (true);
+alter publication supabase_realtime add table public.kong_tasks;`;
 
 function taskFromRow(r){ return { id:r.id, title:r.title||'', assignee:TASK_PEOPLE.includes(r.assignee)?r.assignee:'TONY', status:['todo','progress','done'].includes(r.status)?r.status:'todo', createdAt:r.created_at||'' }; }
 function taskToRow(t){ return { id:t.id, title:t.title, assignee:t.assignee, status:t.status }; }
 
 async function loadTasks(){
   try{
-    const { data, error } = await sb.from('tasks').select('*').order('created_at', { ascending:true });
+    const { data, error } = await sb.from('kong_tasks').select('*').order('created_at', { ascending:true });
     if(error) throw error;
     taskState.items = (data||[]).map(taskFromRow);
     taskState.missing = false;
@@ -4198,7 +4198,7 @@ async function loadTasks(){
   renderTasks();
 }
 async function saveTask(t){
-  const { error } = await sb.from('tasks').upsert(taskToRow(t), { onConflict:'id' });
+  const { error } = await sb.from('kong_tasks').upsert(taskToRow(t), { onConflict:'id' });
   if(error){
     console.error('save task failed', error);
     const tableMissing = /relation|does not exist|schema cache|PGRST205|42P01/i.test((error.message||'')+(error.code||''));
@@ -4207,7 +4207,7 @@ async function saveTask(t){
   }
 }
 async function deleteTask(id){
-  const { error } = await sb.from('tasks').delete().eq('id', id);
+  const { error } = await sb.from('kong_tasks').delete().eq('id', id);
   if(error){ console.error('delete task failed', error); alert('Could not delete that task — try again.'); loadTasks(); }
 }
 function taskOptionsHtml(list, selected){
@@ -4284,7 +4284,7 @@ let taskRefreshTimer = null;
 function setupTaskRealtime(){
   try{
     sb.channel('kong-tasks')
-      .on('postgres_changes', { event:'*', schema:'public', table:'tasks' }, ()=>{
+      .on('postgres_changes', { event:'*', schema:'public', table:'kong_tasks' }, ()=>{
         clearTimeout(taskRefreshTimer);
         taskRefreshTimer = setTimeout(()=>{ const a=document.activeElement; if(a && (a.tagName==='INPUT'||a.tagName==='SELECT')){ taskRefreshTimer=setTimeout(loadTasks,2500); return; } loadTasks(); }, 300);
       })
