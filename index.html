@@ -147,6 +147,23 @@
   .kpi.mint .val{ color:var(--mint); }
   .kpi.coral .val{ color:var(--coral); }
 
+  /* ---------- live task list ---------- */
+  .tk-add{ display:flex; gap:8px; flex-wrap:wrap; }
+  .tk-add input{ flex:1 1 220px; min-width:0; }
+  .tk-add select{ flex:0 0 auto; width:auto; }
+  .tk-filters{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+  .tk-chip{ padding:7px 14px; border-radius:999px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); font-family:inherit; }
+  .tk-chip.active{ background:rgba(255,255,255,0.14); color:var(--text-1, #fff); border-color:var(--glass-border-hi); }
+  .tk-col-title{ font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-3); font-weight:700; margin:14px 2px 8px; }
+  .tk-row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px 12px; margin-bottom:8px; }
+  .tk-row .tk-title{ flex:1 1 200px; min-width:0; font-size:14px; word-break:break-word; }
+  .tk-row.done .tk-title{ text-decoration:line-through; opacity:0.55; }
+  .tk-row select{ font-size:12px; font-weight:700; width:auto; flex:0 0 auto; }
+  .tk-row select.st-todo{ color:var(--coral); }
+  .tk-row select.st-progress{ color:var(--amber); }
+  .tk-row select.st-done{ color:#7be3b0; }
+  .tk-del{ cursor:pointer; opacity:0.6; padding:4px 8px; font-size:16px; line-height:1; background:none; border:none; color:inherit; }
+  .tk-del:hover{ opacity:1; color:var(--coral); }
   /* ---------- app sections (Dashboard / Marketing / Task list) ---------- */
   .app-section{ display:none; }
   .app-section.active{ display:block; }
@@ -1309,10 +1326,16 @@
   <!-- ================= TASK LIST SECTION ================= -->
   <div class="app-section" id="section-tasklist">
     <div class="section-head"><h2>Task list</h2></div>
-    <div class="glass" style="padding:32px 24px; text-align:center;">
-      <div style="font-size:14px; color:var(--text-2); font-weight:600; margin-bottom:6px;">Coming soon</div>
-      <div style="font-size:12.5px; color:var(--text-3);">This section will show your team's to-dos and their status.</div>
+    <div class="glass" style="padding:16px; margin-bottom:14px;">
+      <div class="tk-add">
+        <input type="text" id="tkNewTitle" placeholder="New task…" maxlength="200" />
+        <select id="tkNewAssignee"></select>
+        <button class="btn primary" id="tkAddBtn">Add task</button>
+      </div>
     </div>
+    <div class="tk-filters" id="tkFilters"></div>
+    <div id="tkSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
+    <div id="tkList"></div>
   </div>
 
   </div>
@@ -4140,6 +4163,129 @@ document.getElementById('sectionNav').addEventListener('click', (e)=>{
   closeSidebar();
 });
 
+// ---------- Task list (isolated, live) ----------
+// Its own `tasks` table, its own load/save/realtime — deliberately NOT part of TABLE_MAP/loadState,
+// so nothing here can ever affect (or be affected by) the sales data. Writes are single-row only:
+// upsert the one task that changed, delete the one task removed. Never a bulk write.
+const TASK_PEOPLE = ['TONY','TIP','THEUY'];
+const TASK_STATUSES = [ ['todo','TO DO'], ['progress','IN PROGRESS'], ['done','DONE'] ];
+const taskState = { items: [], filter: 'ALL', ready: false, missing: false };
+const TASKS_SETUP_SQL = `create table if not exists public.tasks (
+  id text primary key,
+  title text not null default '',
+  assignee text not null default 'TONY',
+  status text not null default 'todo',
+  created_at timestamptz not null default now()
+);
+alter table public.tasks enable row level security;
+create policy "tasks all" on public.tasks for all using (true) with check (true);
+alter publication supabase_realtime add table public.tasks;`;
+
+function taskFromRow(r){ return { id:r.id, title:r.title||'', assignee:TASK_PEOPLE.includes(r.assignee)?r.assignee:'TONY', status:['todo','progress','done'].includes(r.status)?r.status:'todo', createdAt:r.created_at||'' }; }
+function taskToRow(t){ return { id:t.id, title:t.title, assignee:t.assignee, status:t.status }; }
+
+async function loadTasks(){
+  try{
+    const { data, error } = await sb.from('tasks').select('*').order('created_at', { ascending:true });
+    if(error) throw error;
+    taskState.items = (data||[]).map(taskFromRow);
+    taskState.missing = false;
+  }catch(e){
+    console.error('loadTasks failed', e);
+    taskState.missing = true; // most likely the table hasn't been created yet
+  }
+  taskState.ready = true;
+  renderTasks();
+}
+async function saveTask(t){
+  const { error } = await sb.from('tasks').upsert(taskToRow(t), { onConflict:'id' });
+  if(error){ console.error('save task failed', error); alert('Could not save that task — check your connection and try again.'); loadTasks(); }
+}
+async function deleteTask(id){
+  const { error } = await sb.from('tasks').delete().eq('id', id);
+  if(error){ console.error('delete task failed', error); alert('Could not delete that task — try again.'); loadTasks(); }
+}
+function taskOptionsHtml(list, selected){
+  return list.map(o=>{ const v=Array.isArray(o)?o[0]:o, l=Array.isArray(o)?o[1]:o; return `<option value="${v}" ${v===selected?'selected':''}>${l}</option>`; }).join('');
+}
+function renderTasks(){
+  const listEl = document.getElementById('tkList');
+  if(!listEl) return;
+  const setup = document.getElementById('tkSetupMsg');
+  if(taskState.missing){
+    setup.style.display = 'block';
+    setup.innerHTML = `<b>One-time setup needed:</b> the Task list needs its own table in Supabase. Open Supabase → SQL Editor, paste this, and press Run — then reload this page.<pre style="white-space:pre-wrap; font-size:11px; margin:10px 0 0; user-select:all;">${escapeHtml(TASKS_SETUP_SQL)}</pre>`;
+  } else setup.style.display = 'none';
+
+  document.getElementById('tkNewAssignee').innerHTML = taskOptionsHtml(TASK_PEOPLE, document.getElementById('tkNewAssignee').value || TASK_PEOPLE[0]);
+  const filters = document.getElementById('tkFilters');
+  filters.innerHTML = ['ALL',...TASK_PEOPLE].map(p=>`<button type="button" class="tk-chip ${taskState.filter===p?'active':''}" data-f="${p}">${p==='ALL'?'Everyone':p}</button>`).join('');
+
+  const shown = taskState.items.filter(t=> taskState.filter==='ALL' || t.assignee===taskState.filter);
+  if(!shown.length){
+    listEl.innerHTML = `<div class="glass" style="padding:24px; text-align:center; font-size:13px; color:var(--text-3);">No tasks here yet.</div>`;
+    return;
+  }
+  listEl.innerHTML = TASK_STATUSES.map(([sv,sl])=>{
+    const rows = shown.filter(t=>t.status===sv);
+    if(!rows.length) return '';
+    return `<div class="tk-col-title">${sl} · ${rows.length}</div>` + rows.map(t=>`
+      <div class="glass tk-row ${t.status==='done'?'done':''}" data-id="${t.id}">
+        <div class="tk-title">${escapeHtml(t.title)}</div>
+        <select class="tk-assignee">${taskOptionsHtml(TASK_PEOPLE, t.assignee)}</select>
+        <select class="tk-status st-${t.status}">${taskOptionsHtml(TASK_STATUSES, t.status)}</select>
+        <button type="button" class="tk-del" title="Delete task" aria-label="Delete task">×</button>
+      </div>`).join('');
+  }).join('');
+}
+async function addTaskFromForm(){
+  const inp = document.getElementById('tkNewTitle');
+  const title = inp.value.trim();
+  if(!title){ inp.focus(); return; }
+  const t = { id: uid('tsk'), title, assignee: document.getElementById('tkNewAssignee').value || TASK_PEOPLE[0], status:'todo' };
+  taskState.items.push(t);
+  inp.value = '';
+  renderTasks();
+  await saveTask(t);
+}
+document.getElementById('tkAddBtn').addEventListener('click', addTaskFromForm);
+document.getElementById('tkNewTitle').addEventListener('keydown', e=>{ if(e.key==='Enter') addTaskFromForm(); });
+document.getElementById('tkFilters').addEventListener('click', e=>{
+  const b = e.target.closest('.tk-chip'); if(!b) return;
+  taskState.filter = b.dataset.f; renderTasks();
+});
+document.getElementById('tkList').addEventListener('change', async e=>{
+  const row = e.target.closest('.tk-row'); if(!row) return;
+  const t = taskState.items.find(x=>x.id===row.dataset.id); if(!t) return;
+  if(e.target.classList.contains('tk-assignee')) t.assignee = e.target.value;
+  else if(e.target.classList.contains('tk-status')) t.status = e.target.value;
+  else return;
+  renderTasks();
+  await saveTask(t);
+});
+document.getElementById('tkList').addEventListener('click', async e=>{
+  if(!e.target.closest('.tk-del')) return;
+  const row = e.target.closest('.tk-row');
+  const t = taskState.items.find(x=>x.id===row.dataset.id); if(!t) return;
+  if(!confirm(`Delete task "${t.title}"?`)) return;
+  taskState.items = taskState.items.filter(x=>x.id!==t.id);
+  renderTasks();
+  await deleteTask(t.id);
+});
+// live: another person's change lands within about a second (plus a 30s safety refresh)
+let taskRefreshTimer = null;
+function setupTaskRealtime(){
+  try{
+    sb.channel('kong-tasks')
+      .on('postgres_changes', { event:'*', schema:'public', table:'tasks' }, ()=>{
+        clearTimeout(taskRefreshTimer);
+        taskRefreshTimer = setTimeout(()=>{ const a=document.activeElement; if(a && (a.tagName==='INPUT'||a.tagName==='SELECT')){ taskRefreshTimer=setTimeout(loadTasks,2500); return; } loadTasks(); }, 300);
+      })
+      .subscribe();
+  }catch(e){ console.error('task realtime failed', e); }
+  setInterval(()=>{ const a=document.activeElement; if(!document.hidden && !(a && (a.tagName==='INPUT'||a.tagName==='SELECT'))) loadTasks(); }, 30000);
+}
+
 // ---------- Marketing sub-tabs (Overview / Instagram / Website) ----------
 document.getElementById('marketingTabs').addEventListener('click', (e)=>{
   const btn = e.target.closest('.tab');
@@ -4988,6 +5134,9 @@ if(portalTokenFromUrl){
       // total failure here (bad network, missing table, etc.) can never
       // stop the sales dashboard above from rendering.
       try{ await loadMarketingMetrics(); }catch(e){ console.error('loadMarketingMetrics failed', e); }
+
+      // Task list is fully isolated (own table, own error handling) — can't stop the dashboard above.
+      try{ await loadTasks(); setupTaskRealtime(); }catch(e){ console.error('tasks init failed', e); }
 
       renderAll();
       setupStockScrollSlider();
