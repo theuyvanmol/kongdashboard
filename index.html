@@ -148,6 +148,63 @@
   .kpi.mint .val{ color:var(--mint); }
   .kpi.coral .val{ color:var(--coral); }
 
+  /* ---------- content calendar ---------- */
+  .cal-pillars{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; min-height:34px; }
+  .cal-pill{ display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); font-family:inherit; }
+  .cal-pill i{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .cal-pill.active{ background:rgba(255,255,255,0.14); color:var(--text-1,#fff); border-color:var(--glass-border-hi); }
+  .cal-pill em{ font-style:normal; font-weight:600; color:var(--text-3); font-size:11px; }
+  .cal-wrap{ padding:14px; }
+  .cal-nav{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .cal-title{ flex:1; text-align:center; font-size:16px; font-weight:800; letter-spacing:0.02em; }
+  .cal-dow, .cal-grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
+  .cal-dow span{ text-align:center; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-3); font-weight:700; padding:4px 0; }
+  .cal-cell{ min-height:96px; border-radius:10px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); padding:5px; cursor:pointer; display:flex; flex-direction:column; gap:3px; overflow:hidden; }
+  .cal-cell:hover{ background:rgba(255,255,255,0.07); }
+  .cal-cell.other{ opacity:0.38; }
+  .cal-cell.today{ border-color:var(--aurora-teal, #5ee0e0); box-shadow:0 0 0 1px var(--aurora-teal, #5ee0e0) inset; }
+  .cal-num{ font-size:11.5px; font-weight:800; color:var(--text-2); }
+  .cal-cell.today .cal-num{ color:var(--aurora-teal, #5ee0e0); }
+  .cal-chip{ display:flex; align-items:center; gap:5px; border-radius:6px; padding:3px 5px; font-size:11px; font-weight:700; color:#10181c; line-height:1.15; cursor:pointer; overflow:hidden; }
+  .cal-chip img{ width:18px; height:18px; border-radius:4px; object-fit:cover; flex:0 0 auto; }
+  .cal-chip span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .cal-chip.posted{ opacity:0.55; }
+  .cal-more{ font-size:10.5px; color:var(--text-3); font-weight:700; }
+  @media (max-width:700px){
+    .cal-cell{ min-height:68px; padding:3px; }
+    .cal-chip{ padding:2px 3px; font-size:10px; }
+    .cal-chip img{ display:none; }
+  }
+  .cp-preview-wrap{ margin-top:4px; }
+  .cp-preview-label{ font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-3); font-weight:700; margin-bottom:6px; }
+  .cp-preview{ border:1px solid var(--glass-border); border-radius:14px; overflow:hidden; max-width:300px; background:rgba(255,255,255,0.04); }
+  .cp-preview .pv-head{ display:flex; align-items:center; gap:8px; padding:8px 10px; font-size:12px; font-weight:700; }
+  .cp-preview .pv-dot{ width:10px; height:10px; border-radius:50%; }
+  .cp-preview .pv-img{ width:100%; aspect-ratio:1/1; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center; color:var(--text-3); font-size:12px; }
+  .cp-preview .pv-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .cp-preview .pv-cap{ padding:9px 10px; font-size:12.5px; white-space:pre-wrap; word-break:break-word; line-height:1.4; max-height:120px; overflow:auto; }
+  .pillar-row{ display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .pillar-row .pr-dot{ width:26px; height:26px; border-radius:50%; border:2px solid rgba(255,255,255,0.4); cursor:pointer; flex:0 0 auto; }
+  .pillar-row input{ flex:1; min-width:0; }
+  .pillar-row button{ background:none; border:none; color:inherit; cursor:pointer; font-size:18px; opacity:0.6; }
+  .pillar-row button:hover{ opacity:1; color:var(--coral); }
+  /* ---------- feedback ---------- */
+  .fb-card{ padding:18px; max-width:720px; position:relative; }
+  .fb-card textarea{ width:100%; font-family:inherit; resize:vertical; }
+  .fb-type{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .fb-type-btn{ text-align:left; padding:12px 14px; border-radius:14px; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); cursor:pointer; font-family:inherit; display:flex; flex-direction:column; gap:3px; }
+  .fb-type-btn b{ font-size:14px; color:var(--text-1,#fff); }
+  .fb-type-btn span{ font-size:11.5px; color:var(--text-3); }
+  .fb-type-btn.active{ background:rgba(255,255,255,0.12); border-color:var(--glass-border-hi); }
+  .fb-list{ display:flex; flex-direction:column; gap:8px; max-width:720px; }
+  .fb-item{ display:flex; gap:10px; align-items:center; padding:11px 14px; border-radius:12px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.04); }
+  .fb-item .fb-t{ flex:1; min-width:0; font-size:13.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+  .fb-item .fb-n{ font-size:11.5px; color:var(--text-3); }
+  .fb-badge{ font-size:10.5px; font-weight:800; letter-spacing:0.06em; text-transform:uppercase; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .fb-badge.received{ background:rgba(255,207,112,0.18); color:var(--amber); }
+  .fb-badge.progress{ background:rgba(111,183,255,0.2); color:#8cc6ff; }
+  .fb-badge.done{ background:rgba(123,227,176,0.2); color:#7be3b0; }
+  .fb-kind{ font-size:11px; color:var(--text-3); }
   /* ---------- live task list ---------- */
   .tk-add{ display:flex; gap:8px; flex-wrap:wrap; }
   .tk-add input{ flex:1 1 240px; min-width:0; font-size:15px; }
@@ -525,14 +582,14 @@
   .field{ margin-bottom:14px; }
   .field label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-3); margin-bottom:6px; font-weight:700; }
 
-  input, select{
+  input, select, textarea{
     width:100%; padding:11px 12px; border-radius:10px; border:1px solid var(--glass-border);
     background:var(--select-bg); color:var(--text-1); font-family:'Inter',sans-serif; font-size:13.5px; outline:none; box-sizing:border-box;
     color-scheme:dark;
   }
   select option{ background:var(--select-bg); color:var(--text-1); }
-  input:focus, select:focus{ border-color:var(--violet); }
-  input::placeholder{ color:var(--text-3); }
+  input:focus, select:focus, textarea:focus{ border-color:var(--violet); }
+  input::placeholder, textarea::placeholder{ color:var(--text-3); }
 
   .field-row{ display:flex; gap:10px; flex-wrap:wrap; }
   .field-row .field{ flex:1; min-width:140px; }
@@ -801,6 +858,14 @@
       <button class="tab" data-section="brainstorm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0012 2z"/></svg>
         <span>Brainstorm</span>
+      </button>
+      <button class="tab" data-section="content">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <span>Content Calendar</span>
+      </button>
+      <button class="tab" data-section="feedback">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+        <span>Feedback</span>
       </button>
     </div>
   </nav>
@@ -1385,6 +1450,50 @@
     <div class="bs-canvas" id="bsCanvas"><div class="bs-banner" id="bsBanner"></div><div class="bs-board" id="bsBoard"></div></div>
   </div>
 
+  <!-- ================= CONTENT CALENDAR SECTION ================= -->
+  <div class="app-section" id="section-content">
+    <div class="section-head">
+      <h2>Content Calendar</h2>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn" id="calPillarsBtn">Content pillars</button>
+        <button class="btn primary" id="calNewBtn">+ New post</button>
+      </div>
+    </div>
+    <div id="calSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
+    <div class="cal-pillars" id="calPillarBar"></div>
+    <div class="glass cal-wrap">
+      <div class="cal-nav">
+        <button class="btn small" id="calPrev" aria-label="Previous month">‹</button>
+        <div class="cal-title" id="calTitle"></div>
+        <button class="btn small" id="calNext" aria-label="Next month">›</button>
+        <button class="btn small ghost" id="calToday">Today</button>
+      </div>
+      <div class="cal-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+  </div>
+
+  <!-- ================= FEEDBACK SECTION ================= -->
+  <div class="app-section" id="section-feedback">
+    <div class="section-head"><h2>Feedback</h2></div>
+    <div class="glass fb-card">
+      <div class="fb-type" id="fbType">
+        <button type="button" class="fb-type-btn active" data-t="bug"><b>Report a problem</b><span>Something is broken or looks wrong</span></button>
+        <button type="button" class="fb-type-btn" data-t="feature"><b>Request a feature</b><span>Something you'd like added or changed</span></button>
+      </div>
+      <div class="field"><label>Short title</label><input type="text" id="fbTitle" maxlength="120" placeholder="e.g. Invoice total looks wrong on mobile" /></div>
+      <div class="field"><label id="fbDescLabel">What happened? What did you expect?</label><textarea id="fbDesc" rows="5" maxlength="3000" placeholder="Tell us as much as you can — which page, what you tapped, what you saw."></textarea></div>
+      <div class="field"><label>Your name (optional)</label><input type="text" id="fbName" maxlength="60" placeholder="So we know who to ask" /></div>
+      <input type="text" id="fbWebsite" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute; left:-9999px; opacity:0; height:0;" />
+      <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <button class="btn primary" id="fbSend">Send</button>
+        <span id="fbStatus" style="font-size:12.5px; color:var(--text-2);"></span>
+      </div>
+    </div>
+    <div class="section-head" style="margin-top:22px;"><h2>Recent requests</h2></div>
+    <div id="fbList" class="fb-list"></div>
+  </div>
+
   </div>
 
 </div>
@@ -1431,6 +1540,52 @@
       <button class="btn ghost" id="ifDelete" style="display:none; color:var(--coral);">Delete invoice</button>
       <button class="btn primary" id="ifSave">Save</button>
     </div>
+  </div>
+</div>
+
+<!-- Content post modal -->
+<div class="overlay" id="postModalOverlay">
+  <div class="glass modal" style="width:560px; max-width:94vw; max-height:92vh; overflow:auto;">
+    <h3 id="postModalTitle">New post</h3>
+    <div class="field-row">
+      <div class="field"><label>Date</label><input type="date" id="cpDate" /></div>
+      <div class="field"><label>Content pillar</label><select id="cpPillar"></select></div>
+    </div>
+    <div class="field"><label>Title / idea</label><input type="text" id="cpTitle" maxlength="140" placeholder="e.g. Aftercare tips reel" /></div>
+    <div class="field"><label>Caption</label><textarea id="cpCaption" rows="4" maxlength="2200" placeholder="Write the caption here…"></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Platform</label><select id="cpPlatform"></select></div>
+      <div class="field"><label>Status</label><select id="cpStatus"></select></div>
+    </div>
+    <div class="field"><label>Link (optional — e.g. a Drive link to the video)</label><input type="url" id="cpLink" maxlength="500" placeholder="https://" /></div>
+    <div class="field">
+      <label>Upload image / cover</label>
+      <input type="file" id="cpFile" accept="image/*" />
+      <div style="font-size:11.5px; color:var(--text-3); margin-top:4px;">Photos are shrunk automatically. For a video, upload the cover image and paste the video link above.</div>
+    </div>
+    <div class="cp-preview-wrap" id="cpPreviewWrap">
+      <div class="cp-preview-label">Preview</div>
+      <div class="cp-preview" id="cpPreview"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn ghost" id="cpCancel">Cancel</button>
+      <button class="btn ghost" id="cpDelete" style="display:none; color:var(--coral);">Delete</button>
+      <button class="btn primary" id="cpSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Content pillars modal -->
+<div class="overlay" id="pillarModalOverlay">
+  <div class="glass modal" style="width:440px; max-width:94vw; max-height:90vh; overflow:auto;">
+    <h3>Content pillars</h3>
+    <div style="font-size:12.5px; color:var(--text-3); margin-bottom:12px;">The themes your content is built around (for example Education, Behind the scenes, Aftercare tips, Promotions). Tap a colour dot to change its colour.</div>
+    <div id="pillarRows"></div>
+    <div class="field-row" style="margin-top:12px; align-items:flex-end;">
+      <div class="field" style="margin-bottom:0;"><label>New pillar</label><input type="text" id="pillarNewName" maxlength="40" placeholder="e.g. Education" /></div>
+      <button class="btn primary" id="pillarAddBtn" style="flex:0 0 auto;">Add</button>
+    </div>
+    <div class="modal-actions"><button class="btn primary" id="pillarDone">Done</button></div>
   </div>
 </div>
 
@@ -4584,6 +4739,209 @@ function setupNoteRealtime(){
   setInterval(()=>{ if(!document.hidden && noteState.busy===0) loadNotes(); }, 30000);
 }
 
+// ---------- Content Calendar (isolated, live) ----------
+// Own `kong_pillars` + `kong_posts` tables, single-row upserts/deletes only — never touches sales data.
+const CAL_COLORS = ['#ff8478','#ffcf70','#7be3b0','#6fb7ff','#a996ff','#ff9ed1','#5ee0e0','#c4d96a'];
+const CAL_PLATFORMS = ['Instagram','TikTok','Facebook','YouTube','Other'];
+const CAL_STATUSES = [['idea','Idea'],['draft','Draft'],['scheduled','Scheduled'],['posted','Posted']];
+const calState = { pillars:[], posts:[], month:(()=>{const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), 1);})(), filter:'all', missing:false, editing:null, image:'' };
+const CAL_SETUP_SQL = `create table if not exists public.kong_pillars (
+  id text primary key,
+  name text not null default '',
+  color text not null default '#6fb7ff',
+  sort integer not null default 0,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.kong_posts (
+  id text primary key,
+  date date,
+  pillar_id text not null default '',
+  title text not null default '',
+  caption text not null default '',
+  platform text not null default 'Instagram',
+  status text not null default 'idea',
+  link text not null default '',
+  image text not null default '',
+  created_at timestamptz not null default now()
+);
+alter table public.kong_pillars enable row level security;
+alter table public.kong_posts enable row level security;
+create policy "kong_pillars all" on public.kong_pillars for all using (true) with check (true);
+create policy "kong_posts all" on public.kong_posts for all using (true) with check (true);
+alter publication supabase_realtime add table public.kong_pillars;
+alter publication supabase_realtime add table public.kong_posts;`;
+
+function calISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function calPillar(id){ return calState.pillars.find(p=>p.id===id); }
+function fileToDataUrl(file, max=900, q=0.78){ return new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>{ const img=new Image(); img.onload=()=>{ const s=Math.min(1,max/Math.max(img.width,img.height)); const c=document.createElement('canvas'); c.width=Math.round(img.width*s); c.height=Math.round(img.height*s); c.getContext('2d').drawImage(img,0,0,c.width,c.height); res(c.toDataURL('image/jpeg',q)); }; img.onerror=rej; img.src=fr.result; }; fr.onerror=rej; fr.readAsDataURL(file); }); }
+
+async function loadCalendar(){
+  try{
+    const a = await sb.from('kong_pillars').select('*').order('sort',{ascending:true}).order('created_at',{ascending:true});
+    if(a.error) throw a.error;
+    const b = await sb.from('kong_posts').select('*').order('date',{ascending:true});
+    if(b.error) throw b.error;
+    calState.pillars = (a.data||[]).map(r=>({id:r.id,name:r.name||'',color:r.color||CAL_COLORS[0],sort:r.sort||0}));
+    calState.posts = (b.data||[]).map(r=>({id:r.id,date:r.date||'',pillarId:r.pillar_id||'',title:r.title||'',caption:r.caption||'',platform:r.platform||'Instagram',status:r.status||'idea',link:r.link||'',image:r.image||''}));
+    calState.missing = false;
+  }catch(e){ console.error('loadCalendar failed', e); calState.missing = true; }
+  renderCalendar();
+}
+function calErr(error, what){
+  console.error(what+' failed', error);
+  if(/relation|does not exist|schema cache|PGRST205|42P01/i.test((error.message||'')+(error.code||''))){ calState.missing=true; renderCalendar(); alert('The Content Calendar needs its one-time setup first — the steps are shown at the top of the tab.'); }
+  else { alert('Could not '+what+' — check your connection and try again.'); loadCalendar(); }
+}
+async function savePillar(p){ const {error}=await sb.from('kong_pillars').upsert({id:p.id,name:p.name,color:p.color,sort:p.sort},{onConflict:'id'}); if(error) calErr(error,'save that pillar'); }
+async function deletePillar(id){ const {error}=await sb.from('kong_pillars').delete().eq('id',id); if(error) calErr(error,'delete that pillar'); }
+async function savePost(p){
+  const {error}=await sb.from('kong_posts').upsert({id:p.id,date:p.date||null,pillar_id:p.pillarId,title:p.title,caption:p.caption,platform:p.platform,status:p.status,link:p.link,image:p.image},{onConflict:'id'});
+  if(error){ calErr(error,'save that post'); return false; } return true;
+}
+async function deletePost(id){ const {error}=await sb.from('kong_posts').delete().eq('id',id); if(error) calErr(error,'delete that post'); }
+
+function renderCalendar(){
+  const grid = document.getElementById('calGrid'); if(!grid) return;
+  const setup = document.getElementById('calSetupMsg');
+  if(calState.missing){
+    setup.style.display='block';
+    setup.innerHTML = `<b>One-time setup needed:</b> the Content Calendar needs its own tables in Supabase. Open Supabase → SQL Editor, paste this, press Run, then reload.<div style="margin:10px 0;"><button type="button" class="btn small" id="calCopySql">Copy the SQL</button></div><pre style="white-space:pre-wrap; font-size:11px; margin:0; user-select:all;">${escapeHtml(CAL_SETUP_SQL)}</pre>`;
+    const cb=document.getElementById('calCopySql'); if(cb) cb.onclick=()=>{ try{ navigator.clipboard.writeText(CAL_SETUP_SQL); cb.textContent='Copied ✓'; }catch(e){} };
+  } else setup.style.display='none';
+  // pillar filter bar
+  const bar = document.getElementById('calPillarBar');
+  const cnt = id => calState.posts.filter(p=>p.pillarId===id).length;
+  bar.innerHTML = `<button class="cal-pill ${calState.filter==='all'?'active':''}" data-f="all">All posts <em>${calState.posts.length}</em></button>` +
+    calState.pillars.map(p=>`<button class="cal-pill ${calState.filter===p.id?'active':''}" data-f="${escapeHtml(p.id)}"><i style="background:${escapeHtml(p.color)}"></i>${escapeHtml(p.name)} <em>${cnt(p.id)}</em></button>`).join('') +
+    (calState.pillars.length?'':`<span style="font-size:12.5px;color:var(--text-3);align-self:center;">No pillars yet — tap “Content pillars” to add your first.</span>`);
+  // month grid (Monday first)
+  const m = calState.month, y=m.getFullYear(), mo=m.getMonth();
+  document.getElementById('calTitle').textContent = m.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  const first = new Date(y,mo,1); const lead = (first.getDay()+6)%7;
+  const start = new Date(y,mo,1-lead); const today = todayISO();
+  let html='';
+  for(let i=0;i<42;i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate()+i); const iso=calISO(d);
+    if(i>=35 && d.getMonth()!==mo) break;
+    const posts = calState.posts.filter(p=>p.date===iso && (calState.filter==='all'||p.pillarId===calState.filter));
+    const chips = posts.slice(0,3).map(p=>{ const pl=calPillar(p.pillarId); return `<div class="cal-chip ${p.status==='posted'?'posted':''}" data-post="${escapeHtml(p.id)}" style="background:${escapeHtml(pl?pl.color:'#b8c0c8')}">${p.image?`<img src="${escapeHtml(p.image)}" alt="">`:''}<span>${escapeHtml(p.title||'(untitled)')}</span></div>`; }).join('');
+    html += `<div class="cal-cell ${d.getMonth()!==mo?'other':''} ${iso===today?'today':''}" data-date="${iso}"><div class="cal-num">${d.getDate()}</div>${chips}${posts.length>3?`<div class="cal-more">+${posts.length-3} more</div>`:''}</div>`;
+  }
+  grid.innerHTML = html;
+}
+function calPreview(){
+  const pl = calPillar(document.getElementById('cpPillar').value);
+  const cap = document.getElementById('cpCaption').value;
+  document.getElementById('cpPreview').innerHTML = `<div class="pv-head"><span class="pv-dot" style="background:${escapeHtml(pl?pl.color:'#b8c0c8')}"></span>${escapeHtml(document.getElementById('cpPlatform').value)}${pl?' · '+escapeHtml(pl.name):''}</div><div class="pv-img">${calState.image?`<img src="${escapeHtml(calState.image)}" alt="">`:'No image yet'}</div><div class="pv-cap">${escapeHtml(cap)||'<span style="color:var(--text-3)">Your caption will show here</span>'}</div>`;
+}
+function openPostModal(post, dateISO){
+  calState.editing = post ? post.id : null;
+  calState.image = post ? post.image : '';
+  document.getElementById('postModalTitle').textContent = post ? 'Edit post' : 'New post';
+  document.getElementById('cpDate').value = post ? post.date : (dateISO || todayISO());
+  document.getElementById('cpPillar').innerHTML = `<option value="">— No pillar —</option>` + calState.pillars.map(p=>`<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)}</option>`).join('');
+  document.getElementById('cpPillar').value = post ? post.pillarId : (calState.filter!=='all'?calState.filter:'');
+  document.getElementById('cpTitle').value = post ? post.title : '';
+  document.getElementById('cpCaption').value = post ? post.caption : '';
+  document.getElementById('cpPlatform').innerHTML = CAL_PLATFORMS.map(x=>`<option>${x}</option>`).join('');
+  document.getElementById('cpPlatform').value = post ? post.platform : 'Instagram';
+  document.getElementById('cpStatus').innerHTML = taskOptionsHtml(CAL_STATUSES, post?post.status:'idea');
+  document.getElementById('cpLink').value = post ? post.link : '';
+  document.getElementById('cpFile').value = '';
+  document.getElementById('cpDelete').style.display = post ? '' : 'none';
+  calPreview();
+  document.getElementById('postModalOverlay').classList.add('show');
+}
+function closePostModal(){ document.getElementById('postModalOverlay').classList.remove('show'); }
+function renderPillarRows(){
+  document.getElementById('pillarRows').innerHTML = calState.pillars.map(p=>`<div class="pillar-row" data-id="${escapeHtml(p.id)}"><span class="pr-dot" title="Change colour" style="background:${escapeHtml(p.color)}"></span><input type="text" maxlength="40" value="${escapeHtml(p.name)}" /><button type="button" title="Delete pillar">✕</button></div>`).join('') || '<div style="font-size:12.5px;color:var(--text-3);">No pillars yet.</div>';
+}
+document.getElementById('calPillarBar').addEventListener('click', e=>{ const b=e.target.closest('.cal-pill'); if(!b) return; calState.filter=b.dataset.f; renderCalendar(); });
+document.getElementById('calGrid').addEventListener('click', e=>{
+  const chip = e.target.closest('.cal-chip');
+  if(chip){ const p=calState.posts.find(x=>x.id===chip.dataset.post); if(p) openPostModal(p); return; }
+  const cell = e.target.closest('.cal-cell'); if(cell) openPostModal(null, cell.dataset.date);
+});
+document.getElementById('calPrev').onclick=()=>{ calState.month=new Date(calState.month.getFullYear(),calState.month.getMonth()-1,1); renderCalendar(); };
+document.getElementById('calNext').onclick=()=>{ calState.month=new Date(calState.month.getFullYear(),calState.month.getMonth()+1,1); renderCalendar(); };
+document.getElementById('calToday').onclick=()=>{ const d=new Date(); calState.month=new Date(d.getFullYear(),d.getMonth(),1); renderCalendar(); };
+document.getElementById('calNewBtn').onclick=()=>openPostModal(null);
+document.getElementById('cpCancel').onclick=closePostModal;
+['cpCaption','cpPillar','cpPlatform'].forEach(id=>document.getElementById(id).addEventListener('input',calPreview));
+document.getElementById('cpFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ calState.image = await fileToDataUrl(f); calPreview(); }catch(err){ alert('Could not read that image — try a JPG or PNG.'); }
+});
+document.getElementById('cpSave').onclick = async ()=>{
+  const old = calState.editing ? calState.posts.find(x=>x.id===calState.editing) : null;
+  const p = { id: old?old.id:uid('post'), date:document.getElementById('cpDate').value, pillarId:document.getElementById('cpPillar').value, title:document.getElementById('cpTitle').value.trim(), caption:document.getElementById('cpCaption').value, platform:document.getElementById('cpPlatform').value, status:document.getElementById('cpStatus').value, link:document.getElementById('cpLink').value.trim(), image:calState.image };
+  if(!p.date){ alert('Pick a date for this post.'); return; }
+  if(!p.title && !p.caption && !p.image){ alert('Add a title, caption or image first.'); return; }
+  if(await savePost(p)){ if(old) Object.assign(old,p); else calState.posts.push(p); closePostModal(); renderCalendar(); }
+};
+document.getElementById('cpDelete').onclick = async ()=>{
+  if(!calState.editing || !confirm('Delete this post?')) return;
+  const id=calState.editing; calState.posts=calState.posts.filter(x=>x.id!==id); closePostModal(); renderCalendar(); await deletePost(id);
+};
+document.getElementById('calPillarsBtn').onclick=()=>{ renderPillarRows(); document.getElementById('pillarModalOverlay').classList.add('show'); };
+document.getElementById('pillarDone').onclick=()=>{ document.getElementById('pillarModalOverlay').classList.remove('show'); renderCalendar(); };
+document.getElementById('pillarAddBtn').onclick = async ()=>{
+  const inp=document.getElementById('pillarNewName'); const name=inp.value.trim(); if(!name) return;
+  const p={ id:uid('pil'), name, color:CAL_COLORS[calState.pillars.length%CAL_COLORS.length], sort:calState.pillars.length };
+  calState.pillars.push(p); inp.value=''; renderPillarRows(); renderCalendar(); await savePillar(p);
+};
+document.getElementById('pillarNewName').addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('pillarAddBtn').click(); });
+document.getElementById('pillarRows').addEventListener('click', async e=>{
+  const row=e.target.closest('.pillar-row'); if(!row) return; const p=calPillar(row.dataset.id); if(!p) return;
+  if(e.target.closest('.pr-dot')){ p.color=CAL_COLORS[(CAL_COLORS.indexOf(p.color)+1)%CAL_COLORS.length]; renderPillarRows(); renderCalendar(); await savePillar(p); }
+  else if(e.target.tagName==='BUTTON'){
+    const n=calState.posts.filter(x=>x.pillarId===p.id).length;
+    if(!confirm(`Delete the “${p.name}” pillar?`+(n?` Its ${n} post(s) are kept but will have no pillar.`:''))) return;
+    calState.pillars=calState.pillars.filter(x=>x.id!==p.id); if(calState.filter===p.id) calState.filter='all';
+    renderPillarRows(); renderCalendar(); await deletePillar(p.id);
+  }
+});
+document.getElementById('pillarRows').addEventListener('change', async e=>{
+  const row=e.target.closest('.pillar-row'); if(!row||e.target.tagName!=='INPUT') return; const p=calPillar(row.dataset.id); const v=e.target.value.trim();
+  if(p && v && v!==p.name){ p.name=v; renderCalendar(); await savePillar(p); }
+});
+function setupCalRealtime(){
+  let t; const go=()=>{ clearTimeout(t); t=setTimeout(()=>{ if(document.querySelector('#postModalOverlay.show,#pillarModalOverlay.show')){ t=setTimeout(go,3000); return; } loadCalendar(); },400); };
+  try{ sb.channel('kong-cal').on('postgres_changes',{event:'*',schema:'public',table:'kong_posts'},go).on('postgres_changes',{event:'*',schema:'public',table:'kong_pillars'},go).subscribe(); }catch(e){ console.error('cal realtime failed', e); }
+}
+
+// ---------- Feedback → GitHub issues (via /api/feedback; the GitHub token lives only on the server) ----------
+const fbState = { type:'bug' };
+document.getElementById('fbType').addEventListener('click', e=>{
+  const b=e.target.closest('.fb-type-btn'); if(!b) return; fbState.type=b.dataset.t;
+  document.querySelectorAll('.fb-type-btn').forEach(x=>x.classList.toggle('active', x===b));
+  document.getElementById('fbDescLabel').textContent = fbState.type==='bug' ? 'What happened? What did you expect?' : 'What would you like, and how would it help?';
+});
+async function loadFeedbackList(){
+  const el=document.getElementById('fbList'); if(!el) return;
+  try{
+    const r=await fetch('/api/feedback'); if(!r.ok) throw new Error(r.status);
+    const j=await r.json(); const items=j.items||[];
+    el.innerHTML = items.length ? items.map(i=>`<div class="fb-item"><div class="fb-t">${escapeHtml(i.title)}<div class="fb-kind">${i.kind==='bug'?'Problem':'Feature request'} · #${i.number}</div></div><span class="fb-badge ${i.status}">${i.status==='done'?'Done':i.status==='progress'?'Being fixed':'Received'}</span></div>`).join('') : '<div style="font-size:12.5px;color:var(--text-3);">Nothing sent yet.</div>';
+  }catch(e){ el.innerHTML='<div style="font-size:12.5px;color:var(--text-3);">Requests will be listed here once the feedback connection is set up.</div>'; }
+}
+document.getElementById('fbSend').onclick = async ()=>{
+  const st=document.getElementById('fbStatus'), btn=document.getElementById('fbSend');
+  const title=document.getElementById('fbTitle').value.trim(), desc=document.getElementById('fbDesc').value.trim();
+  if(title.length<4 || desc.length<10){ st.textContent='Please add a short title and a bit more detail.'; return; }
+  btn.disabled=true; st.textContent='Sending…';
+  try{
+    const r=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:fbState.type,title,description:desc,name:document.getElementById('fbName').value.trim(),website:document.getElementById('fbWebsite').value})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||('Error '+r.status));
+    st.textContent='Sent ✓ — thank you! It is now in the list below.';
+    document.getElementById('fbTitle').value=''; document.getElementById('fbDesc').value='';
+    loadFeedbackList();
+  }catch(e){ st.textContent='Could not send: '+e.message; }
+  btn.disabled=false;
+};
+document.querySelector('#sectionNav [data-section="feedback"]').addEventListener('click', loadFeedbackList);
+
 // ---------- Marketing sub-tabs (Overview / Instagram / Website) ----------
 document.getElementById('marketingTabs').addEventListener('click', (e)=>{
   const btn = e.target.closest('.tab');
@@ -5436,6 +5794,7 @@ if(portalTokenFromUrl){
       // Task list is fully isolated (own table, own error handling) — can't stop the dashboard above.
       try{ await loadTasks(); setupTaskRealtime(); }catch(e){ console.error('tasks init failed', e); }
       try{ await loadNotes(); setupNoteRealtime(); }catch(e){ console.error('notes init failed', e); }
+      try{ await loadCalendar(); setupCalRealtime(); }catch(e){ console.error('calendar init failed', e); }
 
       renderAll();
       setupStockScrollSlider();
