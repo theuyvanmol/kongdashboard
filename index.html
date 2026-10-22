@@ -163,6 +163,13 @@
   .sm-tag{ transform:translate(-50%,-100%); text-align:center; pointer-events:auto; cursor:pointer; white-space:nowrap; margin-top:-6px; }
   .sm-tag b{ display:block; font-size:12px; color:#fff; text-shadow:0 1px 4px #000,0 0 8px #000; } .sm-tag span{ font-size:11px; color:#7be3b0; font-weight:800; text-shadow:0 1px 4px #000; }
   @media (max-width:800px){ .sm-panel{ top:auto; bottom:10px; right:10px; left:10px; width:auto; max-height:46%; } }
+  .sm-panel{ width:250px !important; max-height:52% !important; padding:12px 14px !important; }
+  .sm-panel.min{ width:auto !important; padding:6px !important; } .sm-panel.min > :not(.sm-min){ display:none; }
+  .sm-min{ position:absolute; right:8px; top:6px; width:26px; height:26px; border-radius:8px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.08); color:inherit; cursor:pointer; font-size:15px; line-height:1; z-index:2; } .sm-panel.min .sm-min{ position:static; }
+  .sm-panel h4{ padding-right:30px; }
+  .sm-det{ margin-top:10px; } .sm-det summary{ cursor:pointer; font-size:12px; font-weight:700; color:var(--text-2); padding:4px 0; }
+  .sm-scroll{ max-height:170px; overflow:auto; }
+  @media (max-width:800px){ .sm-panel{ width:auto !important; max-height:38% !important; } }
   /* ---------- content calendar ---------- */
   .cal-pillars{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; min-height:34px; }
   .cal-pill{ display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); font-family:inherit; }
@@ -4980,7 +4987,7 @@ document.getElementById('fbSend').onclick = async ()=>{
 document.querySelector('#sectionNav [data-section="feedback"]').addEventListener('click', loadFeedbackList);
 
 // ---------- Studio Map (3D columns on a real map; read-only, uses existing studio coordinates) ----------
-const sm = { placing:null, map:null, markers:[], spin:false, selected:null, ready:false, raf:0 };
+const sm = { min:false, openPlace:false, placing:null, map:null, markers:[], spin:false, selected:null, ready:false, raf:0 };
 function smStudioData(){
   const mkNow = monthKey(todayISO());
   const months = []; { const d=new Date(); d.setDate(1); for(let i=5;i>=0;i--){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); } }
@@ -4997,7 +5004,7 @@ function smUnplaced(){
 }
 function smPlaceHtml(){
   const u=smUnplaced(); if(!u.length) return '';
-  return `<div class="sm-sub" style="margin-top:14px;"><b>Not on the map yet (${u.length})</b> — tap a studio, then tap its spot on the map.</div><div class="sm-rank">${u.map(x=>`<button data-place="${escapeHtml(x.name)}" class="${sm.placing===x.name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${sm.placing===x.name?'tap map…':'📍 place'}</b></button>`).join('')}</div>`;
+  return `<details class="sm-det" ${(sm.placing||sm.openPlace)?'open':''} data-det="place"><summary>Not on the map yet (${u.length})</summary><div class="sm-sub">Tap a studio, then tap its spot on the map.</div><div class="sm-rank sm-scroll">${u.map(x=>`<button data-place="${escapeHtml(x.name)}" class="${sm.placing===x.name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${sm.placing===x.name?'tap map…':'📍 place'}</b></button>`).join('')}</div></details>`;
 }
 async function smSavePlace(name, lat, lng){
   const c=clientByName(name); if(!c) return;
@@ -5028,7 +5035,9 @@ function smSelect(name){
     <div class="sm-stats"><div class="sm-stat"><b>${fmtTHB(s.total)}</b><span>Total sales</span></div><div class="sm-stat"><b>${fmtTHB(s.thisMonth)}</b><span>This month</span></div></div>
     <div class="sm-bars">${s.series.map(v=>`<div style="height:${Math.round(v/max*100)}%" title="${fmtTHB(v)}"></div>`).join('')}</div>
     <div class="sm-bar-lbls">${s.months.map(m=>`<span>${m.slice(5)}</span>`).join('')}</div>
-    <div class="sm-rank">${ranked.map(x=>`<button data-n="${escapeHtml(x.name)}" class="${x.name===name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${fmtTHB(x.total)}</b></button>`).join('')}</div>`+smPlaceHtml();
+    <details class="sm-det"><summary>All studios (${ranked.length})</summary><div class="sm-rank sm-scroll">${ranked.map(x=>`<button data-n="${escapeHtml(x.name)}" class="${x.name===name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${fmtTHB(x.total)}</b></button>`).join('')}</div></details>`+smPlaceHtml();
+  panel.classList.toggle('min', sm.min);
+  panel.insertAdjacentHTML('afterbegin', `<button type="button" class="sm-min" data-min="1" title="${sm.min?'Show panel':'Hide panel'}">${sm.min?'＋':'–'}</button>`);
   if(sm.map) sm.map.flyTo({ center:[s.lng,s.lat], zoom:Math.max(sm.map.getZoom(),11), pitch:62, duration:1200 });
 }
 function renderStudioMap(){
@@ -5083,7 +5092,9 @@ document.getElementById('smReset').onclick=()=>smFit(smStudioData());
 document.getElementById('smPanel').addEventListener('click',e=>{
   const pl=e.target.closest('[data-place]');
   if(pl){ const n=pl.dataset.place; sm.placing = (sm.placing===n)?null:n; if(sm.map) sm.map.getCanvas().style.cursor = sm.placing?'crosshair':''; const m=document.getElementById('smMsg'); if(sm.placing){ m.style.display='block'; m.style.top='70px'; m.textContent='Tap where “'+n+'” is on the map'; } else m.style.display='none'; const keep=sm.selected; if(smStudioData().length) smSelect(keep||smStudioData()[0].name); else document.getElementById('smPanel').innerHTML=smPlaceHtml(); return; }
+  const mn=e.target.closest('[data-min]'); if(mn){ sm.min=!sm.min; document.getElementById('smPanel').classList.toggle('min', sm.min); mn.textContent=sm.min?'＋':'–'; return; }
   const b=e.target.closest('[data-n]'); if(b) smSelect(b.dataset.n); });
+document.getElementById('smPanel').addEventListener('toggle', e=>{ if(e.target.dataset && e.target.dataset.det==='place') sm.openPlace=e.target.open; }, true);
 document.querySelector('#sectionNav [data-section="studiomap"]').addEventListener('click',()=>{
   setTimeout(()=>{ try{ renderStudioMap(); if(sm.map){ sm.map.resize(); } }catch(e){ console.error('studio map failed', e); } }, 60);
 });
