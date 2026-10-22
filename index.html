@@ -6,7 +6,7 @@
 <title>Sales Invoice Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.css" />
 <style>
   :root{
     --bg-0:#050e09;
@@ -794,7 +794,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -5014,18 +5014,19 @@ function smSelect(name){
 }
 function renderStudioMap(){
   const msg=document.getElementById('smMsg'), panel=document.getElementById('smPanel');
-  if(typeof maplibregl==='undefined'){ msg.style.display='block'; msg.textContent='The 3D map library could not load — check your connection and reload.'; return; }
+  if(typeof mapboxgl==='undefined'){ msg.style.display='block'; msg.textContent='The 3D map library could not load — check your connection and reload.'; return; }
   const d = smStudioData();
   if(!d.length){ msg.style.display='block'; msg.textContent='No studios are located on the map yet. Add an address via Locations, then use “Locate studios on map” in Marketing.'; panel.style.display='none'; return; }
   msg.style.display='none'; panel.style.display='';
   const max = Math.max(1,...d.map(x=>x.total));
   const fc = { type:'FeatureCollection', features:d.map(x=>({ type:'Feature', properties:{ name:x.name, h:Math.max(300, Math.sqrt(x.total/max)*14000), c:smColor(Math.sqrt(x.total/max)) }, geometry:{ type:'Polygon', coordinates:smSquare(x.lng,x.lat,0.0042) } })) };
   if(!sm.map){
-    sm.map = new maplibregl.Map({ container:'smMap', center:[d[0].lng,d[0].lat], zoom:9, pitch:60, bearing:-20, attributionControl:{compact:true},
-      style:{ version:8, sources:{ base:{ type:'raster', tileSize:256, attribution:'© OpenStreetMap © CARTO', tiles:['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png','https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png','https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'] } }, layers:[{ id:'bg', type:'background', paint:{'background-color':'#0b1114'} },{ id:'base', type:'raster', source:'base', paint:{'raster-saturation':-0.2} }] } });
-    sm.map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'bottom-left');
+    mapboxgl.accessToken = 'pk.eyJ1IjoiaGlyb3ByaW1vIiwiYSI6ImNtdmpwb24zODBodmkzNG9oNWh0N2l2dTAifQ.mnLvJUFvglBOcHbhCbZo_Q'; // public token (designed to be in page code)
+    sm.map = new mapboxgl.Map({ container:'smMap', style:'mapbox://styles/mapbox/dark-v11', center:[d[0].lng,d[0].lat], zoom:9, pitch:60, bearing:-20, attributionControl:true });
+    sm.map.addControl(new mapboxgl.NavigationControl({ visualizePitch:true }), 'bottom-left');
     sm.map.on('load', ()=>{
       sm.map.addSource('studios',{ type:'geojson', data:fc });
+      try{ sm.map.addLayer({ id:'bldg3d', source:'composite', 'source-layer':'building', filter:['==',['get','extrude'],'true'], type:'fill-extrusion', minzoom:13, paint:{ 'fill-extrusion-color':'#2a3338', 'fill-extrusion-height':['get','height'], 'fill-extrusion-base':['get','min_height'], 'fill-extrusion-opacity':0.85 } }); }catch(e){ console.error('buildings layer failed', e); }
       sm.map.addLayer({ id:'studio-cols', type:'fill-extrusion', source:'studios', paint:{ 'fill-extrusion-color':['get','c'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0, 'fill-extrusion-opacity':0.92 } });
       sm.map.on('click','studio-cols', e=>{ const f=e.features&&e.features[0]; if(f) smSelect(f.properties.name); });
       sm.map.on('mouseenter','studio-cols',()=>sm.map.getCanvas().style.cursor='pointer');
@@ -5041,7 +5042,7 @@ function renderStudioMap(){
     const el=document.createElement('div'); el.className='sm-tag'; el.innerHTML=`<b>${escapeHtml(x.name)}</b><span>${fmtTHB(x.total)}</span>`;
     el.addEventListener('click',()=>smSelect(x.name));
     const h=Math.max(300, Math.sqrt(x.total/max)*14000);
-    sm.markers.push(new maplibregl.Marker({ element:el, anchor:'bottom', offset:[0,-Math.min(70,h/260)], pitchAlignment:'viewport' }).setLngLat([x.lng,x.lat]).addTo(sm.map));
+    sm.markers.push(new mapboxgl.Marker({ element:el, anchor:'bottom', offset:[0,-Math.min(70,h/260)], pitchAlignment:'viewport' }).setLngLat([x.lng,x.lat]).addTo(sm.map));
   });
   const top = d.slice().sort((a,b)=>b.total-a.total)[0];
   if(!sm.selected || !d.find(x=>x.name===sm.selected)){ sm.selected=top.name; const s=top; /* render panel without flying */ const keep=sm.map; sm.map=null; smSelect(top.name); sm.map=keep; } else { const keep=sm.map; sm.map=null; smSelect(sm.selected); sm.map=keep; }
@@ -5049,7 +5050,7 @@ function renderStudioMap(){
 function smFit(d){
   if(!sm.map||!d.length) return;
   if(d.length===1){ sm.map.jumpTo({center:[d[0].lng,d[0].lat],zoom:11,pitch:60,bearing:-20}); return; }
-  const b=new maplibregl.LngLatBounds(); d.forEach(x=>b.extend([x.lng,x.lat]));
+  const b=new mapboxgl.LngLatBounds(); d.forEach(x=>b.extend([x.lng,x.lat]));
   sm.map.fitBounds(b,{ padding:{top:90,bottom:60,left:60,right:330}, pitch:60, bearing:-20, maxZoom:12, duration:0 });
 }
 function smSpinLoop(){ if(!sm.spin||!sm.map) return; sm.map.setBearing(sm.map.getBearing()+0.12); sm.raf=requestAnimationFrame(smSpinLoop); }
