@@ -4995,9 +4995,13 @@ function smSquare(lng, lat, half){
   const dl = half/Math.cos(lat*Math.PI/180);
   return [[[lng-dl,lat-half],[lng+dl,lat-half],[lng+dl,lat+half],[lng-dl,lat+half],[lng-dl,lat-half]]];
 }
-function smColor(t){ // 0..1 teal -> amber -> coral
-  const stops=[[94,224,224],[255,207,112],[255,132,120]]; const x=Math.min(1,Math.max(0,t))*2, i=Math.min(1,Math.floor(x)), f=x-i;
-  const a=stops[i], b=stops[i+1]; return 'rgb('+a.map((v,k)=>Math.round(v+(b[k]-v)*f)).join(',')+')';
+function smColor(t){ // 0..1 soft teal -> violet
+  const a=[120,220,210], b=[160,140,255], x=Math.min(1,Math.max(0,t));
+  return 'rgb('+a.map((v,k)=>Math.round(v+(b[k]-v)*x)).join(',')+')';
+}
+function smHeight(total,max,span){ // short, tidy columns: scale to how far apart the studios are
+  const top = Math.min(1800, Math.max(350, span*111000*0.035));
+  return Math.max(60, Math.pow(total/max,0.6)*top);
 }
 function smShort(n){ return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?Math.round(n/1e3)+'k':String(Math.round(n)); }
 function smSelect(name){
@@ -5019,7 +5023,8 @@ function renderStudioMap(){
   if(!d.length){ msg.style.display='block'; msg.textContent='No studios are located on the map yet. Add an address via Locations, then use “Locate studios on map” in Marketing.'; panel.style.display='none'; return; }
   msg.style.display='none'; panel.style.display='';
   const max = Math.max(1,...d.map(x=>x.total));
-  const fc = { type:'FeatureCollection', features:d.map(x=>({ type:'Feature', properties:{ name:x.name, h:Math.max(300, Math.sqrt(x.total/max)*14000), c:smColor(Math.sqrt(x.total/max)) }, geometry:{ type:'Polygon', coordinates:smSquare(x.lng,x.lat,0.0042) } })) };
+  const span = Math.max(0.02, Math.max(...d.map(x=>x.lat))-Math.min(...d.map(x=>x.lat)), Math.max(...d.map(x=>x.lng))-Math.min(...d.map(x=>x.lng)));
+  const fc = { type:'FeatureCollection', features:d.map(x=>({ type:'Feature', properties:{ name:x.name, h:smHeight(x.total,max,span), c:smColor(Math.pow(x.total/max,0.6)) }, geometry:{ type:'Polygon', coordinates:smSquare(x.lng,x.lat,Math.max(0.0007,span*0.006)) } })) };
   if(!sm.map){
     mapboxgl.accessToken = 'pk.eyJ1IjoiaGlyb3ByaW1vIiwiYSI6ImNtdmpwb24zODBodmkzNG9oNWh0N2l2dTAifQ.mnLvJUFvglBOcHbhCbZo_Q'; // public token (designed to be in page code)
     sm.map = new mapboxgl.Map({ container:'smMap', style:'mapbox://styles/mapbox/dark-v11', center:[d[0].lng,d[0].lat], zoom:9, pitch:60, bearing:-20, attributionControl:true });
@@ -5027,7 +5032,7 @@ function renderStudioMap(){
     sm.map.on('load', ()=>{
       sm.map.addSource('studios',{ type:'geojson', data:fc });
       try{ sm.map.addLayer({ id:'bldg3d', source:'composite', 'source-layer':'building', filter:['==',['get','extrude'],'true'], type:'fill-extrusion', minzoom:13, paint:{ 'fill-extrusion-color':'#2a3338', 'fill-extrusion-height':['get','height'], 'fill-extrusion-base':['get','min_height'], 'fill-extrusion-opacity':0.85 } }); }catch(e){ console.error('buildings layer failed', e); }
-      sm.map.addLayer({ id:'studio-cols', type:'fill-extrusion', source:'studios', paint:{ 'fill-extrusion-color':['get','c'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0, 'fill-extrusion-opacity':0.92 } });
+      sm.map.addLayer({ id:'studio-cols', type:'fill-extrusion', source:'studios', paint:{ 'fill-extrusion-color':['get','c'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0, 'fill-extrusion-opacity':0.88 } });
       sm.map.on('click','studio-cols', e=>{ const f=e.features&&e.features[0]; if(f) smSelect(f.properties.name); });
       sm.map.on('mouseenter','studio-cols',()=>sm.map.getCanvas().style.cursor='pointer');
       sm.map.on('mouseleave','studio-cols',()=>sm.map.getCanvas().style.cursor='');
@@ -5041,8 +5046,8 @@ function renderStudioMap(){
   if(sm.ready) d.forEach(x=>{
     const el=document.createElement('div'); el.className='sm-tag'; el.innerHTML=`<b>${escapeHtml(x.name)}</b><span>${fmtTHB(x.total)}</span>`;
     el.addEventListener('click',()=>smSelect(x.name));
-    const h=Math.max(300, Math.sqrt(x.total/max)*14000);
-    sm.markers.push(new mapboxgl.Marker({ element:el, anchor:'bottom', offset:[0,-Math.min(70,h/260)], pitchAlignment:'viewport' }).setLngLat([x.lng,x.lat]).addTo(sm.map));
+    const h=smHeight(x.total,max,span);
+    sm.markers.push(new mapboxgl.Marker({ element:el, anchor:'bottom', offset:[0,-Math.min(40,h/60)], pitchAlignment:'viewport' }).setLngLat([x.lng,x.lat]).addTo(sm.map));
   });
   const top = d.slice().sort((a,b)=>b.total-a.total)[0];
   if(!sm.selected || !d.find(x=>x.name===sm.selected)){ sm.selected=top.name; const s=top; /* render panel without flying */ const keep=sm.map; sm.map=null; smSelect(top.name); sm.map=keep; } else { const keep=sm.map; sm.map=null; smSelect(sm.selected); sm.map=keep; }
