@@ -6,6 +6,7 @@
 <title>Sales Invoice Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
 <style>
   :root{
     --bg-0:#050e09;
@@ -148,6 +149,20 @@
   .kpi.mint .val{ color:var(--mint); }
   .kpi.coral .val{ color:var(--coral); }
 
+  /* ---------- studio map ---------- */
+  .sm-wrap{ position:relative; height:calc(100vh - 190px); min-height:460px; overflow:hidden; padding:0; }
+  #smMap{ position:absolute; inset:0; }
+  .sm-msg{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); text-align:center; font-size:13px; color:var(--text-2); max-width:320px; display:none; background:rgba(10,14,16,0.85); padding:16px 20px; border-radius:14px; z-index:3; }
+  .sm-panel{ position:absolute; right:14px; top:14px; width:290px; max-width:calc(100% - 28px); max-height:calc(100% - 28px); overflow:auto; z-index:3; background:rgba(12,17,20,0.88); backdrop-filter:blur(12px); border:1px solid var(--glass-border); border-radius:16px; padding:14px 16px; }
+  .sm-panel h4{ margin:0 0 2px; font-size:16px; } .sm-panel .sm-sub{ font-size:11.5px; color:var(--text-3); margin-bottom:10px; }
+  .sm-stats{ display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .sm-stat{ background:rgba(255,255,255,0.05); border-radius:10px; padding:8px 10px; } .sm-stat b{ display:block; font-size:15px; } .sm-stat span{ font-size:10.5px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em; }
+  .sm-bars{ display:flex; align-items:flex-end; gap:5px; height:70px; } .sm-bars div{ flex:1; background:linear-gradient(#7be3b0,#5ee0e0); border-radius:4px 4px 0 0; min-height:2px; position:relative; }
+  .sm-bar-lbls{ display:flex; gap:5px; margin-top:4px; } .sm-bar-lbls span{ flex:1; text-align:center; font-size:9.5px; color:var(--text-3); }
+  .sm-rank{ display:flex; flex-direction:column; gap:5px; margin-top:12px; } .sm-rank button{ display:flex; justify-content:space-between; gap:8px; background:rgba(255,255,255,0.04); border:1px solid transparent; color:inherit; border-radius:8px; padding:6px 9px; font-size:12px; cursor:pointer; font-family:inherit; text-align:left; } .sm-rank button:hover, .sm-rank button.on{ border-color:var(--glass-border-hi); background:rgba(255,255,255,0.09); }
+  .sm-tag{ transform:translate(-50%,-100%); text-align:center; pointer-events:auto; cursor:pointer; white-space:nowrap; margin-top:-6px; }
+  .sm-tag b{ display:block; font-size:12px; color:#fff; text-shadow:0 1px 4px #000,0 0 8px #000; } .sm-tag span{ font-size:11px; color:#7be3b0; font-weight:800; text-shadow:0 1px 4px #000; }
+  @media (max-width:800px){ .sm-panel{ top:auto; bottom:10px; right:10px; left:10px; width:auto; max-height:46%; } }
   /* ---------- content calendar ---------- */
   .cal-pillars{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; min-height:34px; }
   .cal-pill{ display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-size:12.5px; font-weight:700; cursor:pointer; border:1px solid var(--glass-border); background:transparent; color:var(--text-2); font-family:inherit; }
@@ -779,6 +794,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -858,6 +874,10 @@
       <button class="tab" data-section="brainstorm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7c.6.5 1 1.3 1 2.1V17h6v-.2c0-.8.4-1.6 1-2.1A7 7 0 0012 2z"/></svg>
         <span>Brainstorm</span>
+      </button>
+      <button class="tab" data-section="studiomap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0114 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>
+        <span>Studio Map</span>
       </button>
       <button class="tab" data-section="content">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -1448,6 +1468,23 @@
     </div>
     <div id="bsSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
     <div class="bs-canvas" id="bsCanvas"><div class="bs-banner" id="bsBanner"></div><div class="bs-board" id="bsBoard"></div></div>
+  </div>
+
+  <!-- ================= STUDIO MAP SECTION ================= -->
+  <div class="app-section" id="section-studiomap">
+    <div class="section-head">
+      <h2>Studio Map</h2>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn small" id="smSpin">Auto-rotate: off</button>
+        <button class="btn small" id="smReset">Reset view</button>
+      </div>
+    </div>
+    <div class="sm-wrap glass">
+      <div id="smMap"></div>
+      <div class="sm-panel" id="smPanel"></div>
+      <div class="sm-msg" id="smMsg"></div>
+    </div>
+    <div style="font-size:12px; color:var(--text-3); margin-top:8px;">Column height = total sales. Drag to pan, right-drag (or two fingers) to tilt and rotate, click a studio to see how it's selling.</div>
   </div>
 
   <!-- ================= CONTENT CALENDAR SECTION ================= -->
@@ -4941,6 +4978,87 @@ document.getElementById('fbSend').onclick = async ()=>{
   btn.disabled=false;
 };
 document.querySelector('#sectionNav [data-section="feedback"]').addEventListener('click', loadFeedbackList);
+
+// ---------- Studio Map (3D columns on a real map; read-only, uses existing studio coordinates) ----------
+const sm = { map:null, markers:[], spin:false, selected:null, ready:false, raf:0 };
+function smStudioData(){
+  const mkNow = monthKey(todayISO());
+  const months = []; { const d=new Date(); d.setDate(1); for(let i=5;i>=0;i--){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); } }
+  return state.clients.filter(c=>typeof c.lat==='number' && typeof c.lng==='number' && isFinite(c.lat) && isFinite(c.lng)).map(c=>{
+    const inv = state.invoices.filter(i=>i.client===c.name);
+    const byMonth = {}; inv.forEach(i=>{ const k=monthKey(i.date); byMonth[k]=(byMonth[k]||0)+invoiceTotal(i); });
+    const total = inv.reduce((a,i)=>a+invoiceTotal(i),0);
+    return { name:c.name, lat:c.lat, lng:c.lng, total, thisMonth:byMonth[mkNow]||0, count:inv.length, series:months.map(m=>byMonth[m]||0), months };
+  });
+}
+function smSquare(lng, lat, half){
+  const dl = half/Math.cos(lat*Math.PI/180);
+  return [[[lng-dl,lat-half],[lng+dl,lat-half],[lng+dl,lat+half],[lng-dl,lat+half],[lng-dl,lat-half]]];
+}
+function smColor(t){ // 0..1 teal -> amber -> coral
+  const stops=[[94,224,224],[255,207,112],[255,132,120]]; const x=Math.min(1,Math.max(0,t))*2, i=Math.min(1,Math.floor(x)), f=x-i;
+  const a=stops[i], b=stops[i+1]; return 'rgb('+a.map((v,k)=>Math.round(v+(b[k]-v)*f)).join(',')+')';
+}
+function smShort(n){ return n>=1e6?(n/1e6).toFixed(1)+'M':n>=1e3?Math.round(n/1e3)+'k':String(Math.round(n)); }
+function smSelect(name){
+  sm.selected = name; const d = smStudioData(); const s = d.find(x=>x.name===name);
+  const panel = document.getElementById('smPanel'); if(!s){ renderStudioMap(); return; }
+  const max = Math.max(1,...s.series);
+  const ranked = d.slice().sort((a,b)=>b.total-a.total);
+  panel.innerHTML = `<h4>${escapeHtml(s.name)}</h4><div class="sm-sub">${s.count} invoice${s.count===1?'':'s'} · rank ${ranked.findIndex(x=>x.name===name)+1} of ${ranked.length}</div>
+    <div class="sm-stats"><div class="sm-stat"><b>${fmtTHB(s.total)}</b><span>Total sales</span></div><div class="sm-stat"><b>${fmtTHB(s.thisMonth)}</b><span>This month</span></div></div>
+    <div class="sm-bars">${s.series.map(v=>`<div style="height:${Math.round(v/max*100)}%" title="${fmtTHB(v)}"></div>`).join('')}</div>
+    <div class="sm-bar-lbls">${s.months.map(m=>`<span>${m.slice(5)}</span>`).join('')}</div>
+    <div class="sm-rank">${ranked.map(x=>`<button data-n="${escapeHtml(x.name)}" class="${x.name===name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${fmtTHB(x.total)}</b></button>`).join('')}</div>`;
+  if(sm.map) sm.map.flyTo({ center:[s.lng,s.lat], zoom:Math.max(sm.map.getZoom(),11), pitch:62, duration:1200 });
+}
+function renderStudioMap(){
+  const msg=document.getElementById('smMsg'), panel=document.getElementById('smPanel');
+  if(typeof maplibregl==='undefined'){ msg.style.display='block'; msg.textContent='The 3D map library could not load — check your connection and reload.'; return; }
+  const d = smStudioData();
+  if(!d.length){ msg.style.display='block'; msg.textContent='No studios are located on the map yet. Add an address via Locations, then use “Locate studios on map” in Marketing.'; panel.style.display='none'; return; }
+  msg.style.display='none'; panel.style.display='';
+  const max = Math.max(1,...d.map(x=>x.total));
+  const fc = { type:'FeatureCollection', features:d.map(x=>({ type:'Feature', properties:{ name:x.name, h:Math.max(300, Math.sqrt(x.total/max)*14000), c:smColor(Math.sqrt(x.total/max)) }, geometry:{ type:'Polygon', coordinates:smSquare(x.lng,x.lat,0.0042) } })) };
+  if(!sm.map){
+    sm.map = new maplibregl.Map({ container:'smMap', center:[d[0].lng,d[0].lat], zoom:9, pitch:60, bearing:-20, attributionControl:{compact:true},
+      style:{ version:8, sources:{ base:{ type:'raster', tileSize:256, attribution:'© OpenStreetMap © CARTO', tiles:['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png','https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png','https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'] } }, layers:[{ id:'bg', type:'background', paint:{'background-color':'#0b1114'} },{ id:'base', type:'raster', source:'base', paint:{'raster-saturation':-0.2} }] } });
+    sm.map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'bottom-left');
+    sm.map.on('load', ()=>{
+      sm.map.addSource('studios',{ type:'geojson', data:fc });
+      sm.map.addLayer({ id:'studio-cols', type:'fill-extrusion', source:'studios', paint:{ 'fill-extrusion-color':['get','c'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0, 'fill-extrusion-opacity':0.92 } });
+      sm.map.on('click','studio-cols', e=>{ const f=e.features&&e.features[0]; if(f) smSelect(f.properties.name); });
+      sm.map.on('mouseenter','studio-cols',()=>sm.map.getCanvas().style.cursor='pointer');
+      sm.map.on('mouseleave','studio-cols',()=>sm.map.getCanvas().style.cursor='');
+      sm.ready=true; renderStudioMap(); smFit(d);
+    });
+  } else if(sm.ready){
+    sm.map.getSource('studios').setData(fc);
+  }
+  // name + sales tags
+  sm.markers.forEach(m=>m.remove()); sm.markers=[];
+  if(sm.ready) d.forEach(x=>{
+    const el=document.createElement('div'); el.className='sm-tag'; el.innerHTML=`<b>${escapeHtml(x.name)}</b><span>${fmtTHB(x.total)}</span>`;
+    el.addEventListener('click',()=>smSelect(x.name));
+    const h=Math.max(300, Math.sqrt(x.total/max)*14000);
+    sm.markers.push(new maplibregl.Marker({ element:el, anchor:'bottom', offset:[0,-Math.min(70,h/260)], pitchAlignment:'viewport' }).setLngLat([x.lng,x.lat]).addTo(sm.map));
+  });
+  const top = d.slice().sort((a,b)=>b.total-a.total)[0];
+  if(!sm.selected || !d.find(x=>x.name===sm.selected)){ sm.selected=top.name; const s=top; /* render panel without flying */ const keep=sm.map; sm.map=null; smSelect(top.name); sm.map=keep; } else { const keep=sm.map; sm.map=null; smSelect(sm.selected); sm.map=keep; }
+}
+function smFit(d){
+  if(!sm.map||!d.length) return;
+  if(d.length===1){ sm.map.jumpTo({center:[d[0].lng,d[0].lat],zoom:11,pitch:60,bearing:-20}); return; }
+  const b=new maplibregl.LngLatBounds(); d.forEach(x=>b.extend([x.lng,x.lat]));
+  sm.map.fitBounds(b,{ padding:{top:90,bottom:60,left:60,right:330}, pitch:60, bearing:-20, maxZoom:12, duration:0 });
+}
+function smSpinLoop(){ if(!sm.spin||!sm.map) return; sm.map.setBearing(sm.map.getBearing()+0.12); sm.raf=requestAnimationFrame(smSpinLoop); }
+document.getElementById('smSpin').onclick=()=>{ sm.spin=!sm.spin; document.getElementById('smSpin').textContent='Auto-rotate: '+(sm.spin?'on':'off'); if(sm.spin) smSpinLoop(); else cancelAnimationFrame(sm.raf); };
+document.getElementById('smReset').onclick=()=>smFit(smStudioData());
+document.getElementById('smPanel').addEventListener('click',e=>{ const b=e.target.closest('[data-n]'); if(b) smSelect(b.dataset.n); });
+document.querySelector('#sectionNav [data-section="studiomap"]').addEventListener('click',()=>{
+  setTimeout(()=>{ try{ renderStudioMap(); if(sm.map){ sm.map.resize(); } }catch(e){ console.error('studio map failed', e); } }, 60);
+});
 
 // ---------- Marketing sub-tabs (Overview / Instagram / Website) ----------
 document.getElementById('marketingTabs').addEventListener('click', (e)=>{
