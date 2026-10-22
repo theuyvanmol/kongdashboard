@@ -4980,7 +4980,7 @@ document.getElementById('fbSend').onclick = async ()=>{
 document.querySelector('#sectionNav [data-section="feedback"]').addEventListener('click', loadFeedbackList);
 
 // ---------- Studio Map (3D columns on a real map; read-only, uses existing studio coordinates) ----------
-const sm = { map:null, markers:[], spin:false, selected:null, ready:false, raf:0 };
+const sm = { placing:null, map:null, markers:[], spin:false, selected:null, ready:false, raf:0 };
 function smStudioData(){
   const mkNow = monthKey(todayISO());
   const months = []; { const d=new Date(); d.setDate(1); for(let i=5;i>=0;i--){ const x=new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')); } }
@@ -4990,6 +4990,21 @@ function smStudioData(){
     const total = inv.reduce((a,i)=>a+invoiceTotal(i),0);
     return { name:c.name, lat:c.lat, lng:c.lng, total, thisMonth:byMonth[mkNow]||0, count:inv.length, series:months.map(m=>byMonth[m]||0), months };
   });
+}
+function smUnplaced(){
+  const tot={}; state.invoices.forEach(i=>{ tot[i.client]=(tot[i.client]||0)+invoiceTotal(i); });
+  return state.clients.filter(c=>!(typeof c.lat==='number' && typeof c.lng==='number' && isFinite(c.lat) && isFinite(c.lng)) && (tot[c.name]||0)>0).map(c=>({name:c.name,total:tot[c.name]})).sort((a,b)=>b.total-a.total);
+}
+function smPlaceHtml(){
+  const u=smUnplaced(); if(!u.length) return '';
+  return `<div class="sm-sub" style="margin-top:14px;"><b>Not on the map yet (${u.length})</b> — tap a studio, then tap its spot on the map.</div><div class="sm-rank">${u.map(x=>`<button data-place="${escapeHtml(x.name)}" class="${sm.placing===x.name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${sm.placing===x.name?'tap map…':'📍 place'}</b></button>`).join('')}</div>`;
+}
+async function smSavePlace(name, lat, lng){
+  const c=clientByName(name); if(!c) return;
+  const { error } = await sb.from('clients').update({ lat, lng }).eq('name', name); // only this one studio's coordinates
+  if(error){ console.error('save location failed', error); alert('Could not save that location — try again.'); return; }
+  c.lat=lat; c.lng=lng; sm.placing=null; sm.map.getCanvas().style.cursor=''; document.getElementById('smMsg').style.display='none';
+  sm.selected=name; renderStudioMap();
 }
 function smSquare(lng, lat, half){
   const dl = half/Math.cos(lat*Math.PI/180);
@@ -5013,32 +5028,20 @@ function smSelect(name){
     <div class="sm-stats"><div class="sm-stat"><b>${fmtTHB(s.total)}</b><span>Total sales</span></div><div class="sm-stat"><b>${fmtTHB(s.thisMonth)}</b><span>This month</span></div></div>
     <div class="sm-bars">${s.series.map(v=>`<div style="height:${Math.round(v/max*100)}%" title="${fmtTHB(v)}"></div>`).join('')}</div>
     <div class="sm-bar-lbls">${s.months.map(m=>`<span>${m.slice(5)}</span>`).join('')}</div>
-    <div class="sm-rank">${ranked.map(x=>`<button data-n="${escapeHtml(x.name)}" class="${x.name===name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${fmtTHB(x.total)}</b></button>`).join('')}</div>`;
+    <div class="sm-rank">${ranked.map(x=>`<button data-n="${escapeHtml(x.name)}" class="${x.name===name?'on':''}"><span>${escapeHtml(x.name)}</span><b>${fmtTHB(x.total)}</b></button>`).join('')}</div>`+smPlaceHtml();
   if(sm.map) sm.map.flyTo({ center:[s.lng,s.lat], zoom:Math.max(sm.map.getZoom(),11), pitch:62, duration:1200 });
 }
 function renderStudioMap(){
   const msg=document.getElementById('smMsg'), panel=document.getElementById('smPanel');
   if(typeof mapboxgl==='undefined'){ msg.style.display='block'; msg.textContent='The 3D map library could not load — check your connection and reload.'; return; }
   const d = smStudioData();
-  if(!d.length){ msg.style.display='block'; msg.textContent='No studios are located on the map yet. Add an address via Locations, then use “Locate studios on map” in Marketing.'; panel.style.display='none'; return; }
+  if(!d.length){ msg.style.display='block'; msg.textContent='No studios are on the map yet — pick one on the right, then tap its spot on the map.'; panel.style.display=''; panel.innerHTML=smPlaceHtml(); if(!sm.map){ smInitMap([13.0,100.9]); } return; }
   msg.style.display='none'; panel.style.display='';
   const max = Math.max(1,...d.map(x=>x.total));
   const span = Math.max(0.02, Math.max(...d.map(x=>x.lat))-Math.min(...d.map(x=>x.lat)), Math.max(...d.map(x=>x.lng))-Math.min(...d.map(x=>x.lng)));
   const fc = { type:'FeatureCollection', features:d.map(x=>({ type:'Feature', properties:{ name:x.name, h:smHeight(x.total,max,span), c:smColor(Math.pow(x.total/max,0.6)) }, geometry:{ type:'Polygon', coordinates:smSquare(x.lng,x.lat,Math.max(0.0007,span*0.006)) } })) };
-  if(!sm.map){
-    mapboxgl.accessToken = 'pk.eyJ1IjoiaGlyb3ByaW1vIiwiYSI6ImNtdmpwb24zODBodmkzNG9oNWh0N2l2dTAifQ.mnLvJUFvglBOcHbhCbZo_Q'; // public token (designed to be in page code)
-    sm.map = new mapboxgl.Map({ container:'smMap', style:'mapbox://styles/mapbox/dark-v11', center:[d[0].lng,d[0].lat], zoom:9, pitch:60, bearing:-20, attributionControl:true });
-    sm.map.addControl(new mapboxgl.NavigationControl({ visualizePitch:true }), 'bottom-left');
-    sm.map.on('load', ()=>{
-      sm.map.addSource('studios',{ type:'geojson', data:fc });
-      try{ sm.map.addLayer({ id:'bldg3d', source:'composite', 'source-layer':'building', filter:['==',['get','extrude'],'true'], type:'fill-extrusion', minzoom:13, paint:{ 'fill-extrusion-color':'#2a3338', 'fill-extrusion-height':['get','height'], 'fill-extrusion-base':['get','min_height'], 'fill-extrusion-opacity':0.85 } }); }catch(e){ console.error('buildings layer failed', e); }
-      sm.map.addLayer({ id:'studio-cols', type:'fill-extrusion', source:'studios', paint:{ 'fill-extrusion-color':['get','c'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0, 'fill-extrusion-opacity':0.88 } });
-      sm.map.on('click','studio-cols', e=>{ const f=e.features&&e.features[0]; if(f) smSelect(f.properties.name); });
-      sm.map.on('mouseenter','studio-cols',()=>sm.map.getCanvas().style.cursor='pointer');
-      sm.map.on('mouseleave','studio-cols',()=>sm.map.getCanvas().style.cursor='');
-      sm.ready=true; renderStudioMap(); smFit(d);
-    });
-  } else if(sm.ready){
+  if(!sm.map){ smInitMap([d[0].lat,d[0].lng], fc, d); }
+  else if(sm.ready){
     sm.map.getSource('studios').setData(fc);
   }
   // name + sales tags
@@ -5052,6 +5055,22 @@ function renderStudioMap(){
   const top = d.slice().sort((a,b)=>b.total-a.total)[0];
   if(!sm.selected || !d.find(x=>x.name===sm.selected)){ sm.selected=top.name; const s=top; /* render panel without flying */ const keep=sm.map; sm.map=null; smSelect(top.name); sm.map=keep; } else { const keep=sm.map; sm.map=null; smSelect(sm.selected); sm.map=keep; }
 }
+function smInitMap(c, fc, d){
+  fc = fc || { type:'FeatureCollection', features:[] }; d = d || [];
+    mapboxgl.accessToken = 'pk.eyJ1IjoiaGlyb3ByaW1vIiwiYSI6ImNtdmpwb24zODBodmkzNG9oNWh0N2l2dTAifQ.mnLvJUFvglBOcHbhCbZo_Q'; // public token (designed to be in page code)
+    sm.map = new mapboxgl.Map({ container:'smMap', style:'mapbox://styles/mapbox/dark-v11', center:[c[1],c[0]], zoom:9, pitch:60, bearing:-20, attributionControl:true });
+    sm.map.addControl(new mapboxgl.NavigationControl({ visualizePitch:true }), 'bottom-left');
+    sm.map.on('load', ()=>{
+      sm.map.addSource('studios',{ type:'geojson', data:fc });
+      try{ sm.map.addLayer({ id:'bldg3d', source:'composite', 'source-layer':'building', filter:['==',['get','extrude'],'true'], type:'fill-extrusion', minzoom:13, paint:{ 'fill-extrusion-color':'#2a3338', 'fill-extrusion-height':['get','height'], 'fill-extrusion-base':['get','min_height'], 'fill-extrusion-opacity':0.85 } }); }catch(e){ console.error('buildings layer failed', e); }
+      sm.map.addLayer({ id:'studio-cols', type:'fill-extrusion', source:'studios', paint:{ 'fill-extrusion-color':['get','c'], 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0, 'fill-extrusion-opacity':0.88 } });
+      sm.map.on('click','studio-cols', e=>{ if(sm.placing) return; const f=e.features&&e.features[0]; if(f) smSelect(f.properties.name); });
+      sm.map.on('click', e=>{ if(sm.placing) smSavePlace(sm.placing, +e.lngLat.lat.toFixed(6), +e.lngLat.lng.toFixed(6)); });
+      sm.map.on('mouseenter','studio-cols',()=>{ if(!sm.placing) sm.map.getCanvas().style.cursor='pointer'; });
+      sm.map.on('mouseleave','studio-cols',()=>{ if(!sm.placing) sm.map.getCanvas().style.cursor=''; });
+      sm.ready=true; renderStudioMap(); smFit(smStudioData());
+    });
+}
 function smFit(d){
   if(!sm.map||!d.length) return;
   if(d.length===1){ sm.map.jumpTo({center:[d[0].lng,d[0].lat],zoom:11,pitch:60,bearing:-20}); return; }
@@ -5061,7 +5080,10 @@ function smFit(d){
 function smSpinLoop(){ if(!sm.spin||!sm.map) return; sm.map.setBearing(sm.map.getBearing()+0.12); sm.raf=requestAnimationFrame(smSpinLoop); }
 document.getElementById('smSpin').onclick=()=>{ sm.spin=!sm.spin; document.getElementById('smSpin').textContent='Auto-rotate: '+(sm.spin?'on':'off'); if(sm.spin) smSpinLoop(); else cancelAnimationFrame(sm.raf); };
 document.getElementById('smReset').onclick=()=>smFit(smStudioData());
-document.getElementById('smPanel').addEventListener('click',e=>{ const b=e.target.closest('[data-n]'); if(b) smSelect(b.dataset.n); });
+document.getElementById('smPanel').addEventListener('click',e=>{
+  const pl=e.target.closest('[data-place]');
+  if(pl){ const n=pl.dataset.place; sm.placing = (sm.placing===n)?null:n; if(sm.map) sm.map.getCanvas().style.cursor = sm.placing?'crosshair':''; const m=document.getElementById('smMsg'); if(sm.placing){ m.style.display='block'; m.style.top='70px'; m.textContent='Tap where “'+n+'” is on the map'; } else m.style.display='none'; const keep=sm.selected; if(smStudioData().length) smSelect(keep||smStudioData()[0].name); else document.getElementById('smPanel').innerHTML=smPlaceHtml(); return; }
+  const b=e.target.closest('[data-n]'); if(b) smSelect(b.dataset.n); });
 document.querySelector('#sectionNav [data-section="studiomap"]').addEventListener('click',()=>{
   setTimeout(()=>{ try{ renderStudioMap(); if(sm.map){ sm.map.resize(); } }catch(e){ console.error('studio map failed', e); } }, 60);
 });
