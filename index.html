@@ -254,6 +254,20 @@
   .tk-meta select.st-done{ color:#7be3b0; }
   .tk-del{ cursor:pointer; opacity:0.6; padding:6px 10px; font-size:18px; line-height:1; background:none; border:none; color:inherit; flex:0 0 auto; }
   .tk-del:hover{ opacity:1; color:var(--coral); }
+  .tk-views{ display:inline-flex; gap:4px; padding:4px; border-radius:13px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.05); margin-bottom:12px; }
+  .tk-view{ padding:8px 18px; border-radius:10px; border:none; background:transparent; color:var(--text-2); font-weight:700; font-size:13px; cursor:pointer; font-family:inherit; }
+  .tk-view.active{ background:linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 52%), linear-gradient(135deg, var(--violet), var(--aurora-teal)); color:#04101a; }
+  textarea.tk-title-input{ resize:none; overflow:hidden; display:block; line-height:1.35; font-family:inherit; white-space:pre-wrap; overflow-wrap:anywhere; min-height:34px; }
+  .tk-card{ cursor:pointer; }
+  .tk-card.open{ border-color:var(--glass-border-hi); background:rgba(255,255,255,0.08); }
+  .tk-due{ display:inline-block; margin:4px 0 0 8px; font-size:11.5px; font-weight:700; color:var(--text-2); }
+  .tk-due.over{ color:var(--coral); }
+  .tk-more{ margin-top:10px; padding-top:10px; border-top:1px solid var(--glass-border); cursor:default; }
+  .tk-more label{ display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-3); font-weight:700; margin:0 0 5px; }
+  .tk-more textarea{ min-height:96px; resize:vertical; font-size:13.5px; line-height:1.4; font-family:inherit; }
+  .tk-more .tk-due-in{ max-width:200px; margin-bottom:10px; }
+  .tk-hint{ font-size:11px; color:var(--text-3); margin-top:2px; padding-left:8px; }
+  .cal-chip.tk{ cursor:pointer; }
   .tk-empty{ text-align:center; font-size:12.5px; color:var(--text-3); padding:14px 0; }
   /* ---------- brainstorm canvas ---------- */
   .bs-canvas{ position:relative; overflow:auto; height:calc(100vh - 150px); min-height:480px; border-radius:16px; border:1px solid var(--glass-border); background:rgba(255,255,255,0.03); -webkit-overflow-scrolling:touch; }
@@ -1513,9 +1527,18 @@
         <button class="btn primary" id="tkAddBtn">+ Add task</button>
       </div>
     </div>
+    <div class="tk-views" id="tkViews"><button type="button" class="tk-view active" data-v="board">Board</button><button type="button" class="tk-view" data-v="calendar">Calendar</button></div>
     <div class="tk-filters" id="tkFilters"></div>
     <div id="tkSetupMsg" class="glass" style="display:none; padding:16px; margin-bottom:14px; font-size:12.5px; color:var(--text-2);"></div>
     <div class="tk-board" id="tkList"></div>
+    <div id="tkCalWrap" style="display:none;">
+      <div class="glass cal-wrap">
+        <div class="cal-nav"><button class="btn small" id="tkCalPrev" aria-label="Previous month">‹</button><div class="cal-title" id="tkCalTitle"></div><button class="btn small" id="tkCalNext" aria-label="Next month">›</button><button class="btn small ghost" id="tkCalToday">Today</button></div>
+        <div class="cal-dow"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+        <div class="cal-grid" id="tkCalGrid"></div>
+      </div>
+      <div id="tkNoDue" style="margin-top:12px; font-size:12.5px; color:var(--text-3);"></div>
+    </div>
   </div>
 
   <!-- ================= BRAINSTORM SECTION ================= -->
@@ -4470,7 +4493,7 @@ document.getElementById('sectionNav').addEventListener('click', (e)=>{
 // upsert the one task that changed, delete the one task removed. Never a bulk write.
 const TASK_PEOPLE = ['TONY','TIP','THEUY'];
 const TASK_STATUSES = [ ['todo','TO DO'], ['progress','IN PROGRESS'], ['done','DONE'] ];
-const taskState = { items: [], filter: 'ALL', ready: false, missing: false };
+const taskState = { items: [], filter: 'ALL', ready: false, missing: false, view:'board', open:new Set(), noCols:false, month:(()=>{const d=new Date();return new Date(d.getFullYear(),d.getMonth(),1);})() };
 const TASKS_SETUP_SQL = `create table if not exists public.kong_tasks (
   id text primary key,
   title text not null default '',
@@ -4482,8 +4505,10 @@ alter table public.kong_tasks enable row level security;
 create policy "kong_tasks all" on public.kong_tasks for all using (true) with check (true);
 alter publication supabase_realtime add table public.kong_tasks;`;
 
-function taskFromRow(r){ return { id:r.id, title:r.title||'', assignee:TASK_PEOPLE.includes(r.assignee)?r.assignee:'TONY', status:['todo','progress','done'].includes(r.status)?r.status:'todo', createdAt:r.created_at||'' }; }
-function taskToRow(t){ return { id:t.id, title:t.title, assignee:t.assignee, status:t.status }; }
+function taskFromRow(r){ return { dueDate:r.due_date||'', details:r.details||'', id:r.id, title:r.title||'', assignee:TASK_PEOPLE.includes(r.assignee)?r.assignee:'TONY', status:['todo','progress','done'].includes(r.status)?r.status:'todo', createdAt:r.created_at||'' }; }
+function taskToRow(t, withExtras){ const r={ id:t.id, title:t.title, assignee:t.assignee, status:t.status }; if(withExtras){ r.due_date=t.dueDate||null; r.details=t.details||''; } return r; }
+const TASKS_COLS_SQL = `alter table public.kong_tasks add column if not exists due_date date;
+alter table public.kong_tasks add column if not exists details text not null default '';`;
 
 async function loadTasks(){
   try{
@@ -4499,7 +4524,12 @@ async function loadTasks(){
   renderTasks();
 }
 async function saveTask(t){
-  const { error } = await sb.from('kong_tasks').upsert(taskToRow(t), { onConflict:'id' });
+  let { error } = await sb.from('kong_tasks').upsert(taskToRow(t, !taskState.noCols), { onConflict:'id' });
+  if(error && !taskState.noCols && /due_date|details|column|schema cache/i.test((error.message||'')+(error.code||''))){
+    // the extra columns (due date / details) haven't been added in Supabase yet — still save the task itself, and show the one-time step
+    taskState.noCols = true; renderTasks();
+    ({ error } = await sb.from('kong_tasks').upsert(taskToRow(t, false), { onConflict:'id' }));
+  }
   if(error){
     console.error('save task failed', error);
     const tableMissing = /relation|does not exist|schema cache|PGRST205|42P01/i.test((error.message||'')+(error.code||''));
@@ -4534,16 +4564,45 @@ function renderTasks(){
     const rows = shown.filter(t=>t.status===sv);
     return `<div class="tk-col ${sv}"><div class="tk-col-head"><span>${sl}</span><span class="tk-count">${rows.length}</span></div>`
       + (rows.length ? rows.map(t=>`
-      <div class="tk-card ${t.status==='done'?'done':''}" data-id="${t.id}">
-        <input type="text" class="tk-title-input" value="${escapeHtml(t.title)}" maxlength="200" aria-label="Task title — tap to edit" />
+      <div class="tk-card ${t.status==='done'?'done':''} ${taskState.open.has(t.id)?'open':''}" data-id="${t.id}">
+        <textarea class="tk-title-input" rows="1" maxlength="200" aria-label="Task title — tap to edit">${escapeHtml(t.title)}</textarea>
+        ${t.dueDate?`<span class="tk-due ${t.status!=='done'&&t.dueDate<todayISO()?'over':''}">📅 ${escapeHtml(t.dueDate)}</span>`:''}
         <div class="tk-meta">
           <select class="tk-assignee" aria-label="Who">${taskOptionsHtml(TASK_PEOPLE, t.assignee)}</select>
           <select class="tk-status st-${t.status}" aria-label="Status">${taskOptionsHtml(TASK_STATUSES, t.status)}</select>
           <button type="button" class="tk-del" title="Delete task" aria-label="Delete task">×</button>
         </div>
+        ${taskState.open.has(t.id)?`<div class="tk-more"><label>Due date</label><input type="date" class="tk-due-in" value="${escapeHtml(t.dueDate)}" /><label>Details</label><textarea class="tk-details" placeholder="Add more about this task — notes, links, steps…" maxlength="5000">${escapeHtml(t.details)}</textarea></div>`:`<div class="tk-hint">${t.details?'📝 has details · ':''}tap to open</div>`}
       </div>`).join('') : `<div class="tk-empty">Nothing here</div>`)
       + `</div>`;
   }).join('');
+  document.querySelectorAll('#tkList .tk-title-input').forEach(taSize);
+  document.getElementById('tkList').style.display = taskState.view==='board' ? '' : 'none';
+  document.getElementById('tkCalWrap').style.display = taskState.view==='calendar' ? '' : 'none';
+  document.querySelectorAll('#tkViews .tk-view').forEach(b=>b.classList.toggle('active', b.dataset.v===taskState.view));
+  if(taskState.noCols && !taskState.missing){
+    setup.style.display='block';
+    setup.innerHTML = `<b>One more setup step for due dates &amp; details:</b> open Supabase → SQL Editor, paste this and press Run, then reload. Tasks keep working meanwhile.<div style="margin:10px 0;"><button type="button" class="btn small" id="tkCopyCols">Copy the SQL</button></div><pre style="white-space:pre-wrap; font-size:11px; margin:0; user-select:all;">${escapeHtml(TASKS_COLS_SQL)}</pre>`;
+    const c2=document.getElementById('tkCopyCols'); if(c2) c2.onclick=async()=>{ try{ await navigator.clipboard.writeText(TASKS_COLS_SQL); c2.textContent='Copied!'; }catch(e){} };
+  }
+  if(taskState.view==='calendar') renderTaskCalendar();
+}
+function taSize(el){ el.style.height='auto'; el.style.height=(el.scrollHeight+2)+'px'; }
+function renderTaskCalendar(){
+  const m=taskState.month, y=m.getFullYear(), mo=m.getMonth();
+  document.getElementById('tkCalTitle').textContent = m.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  const shown = taskState.items.filter(t=> taskState.filter==='ALL' || t.assignee===taskState.filter);
+  const lead=(new Date(y,mo,1).getDay()+6)%7, start=new Date(y,mo,1-lead), today=todayISO();
+  const col={todo:'#ff8478',progress:'#ffcf70',done:'#7be3b0'};
+  let html='';
+  for(let i=0;i<42;i++){
+    const d=new Date(start.getFullYear(),start.getMonth(),start.getDate()+i); if(i>=35 && d.getMonth()!==mo) break;
+    const iso=calISO(d); const ts=shown.filter(t=>t.dueDate===iso);
+    html+=`<div class="cal-cell ${d.getMonth()!==mo?'other':''} ${iso===today?'today':''}" style="cursor:default"><div class="cal-num">${d.getDate()}</div>${ts.slice(0,4).map(t=>`<div class="cal-chip tk ${t.status==='done'?'posted':''}" data-tid="${t.id}" style="background:${col[t.status]}" title="${escapeHtml(t.title)} — ${escapeHtml(t.assignee)}"><span>${escapeHtml(t.assignee.slice(0,1))} · ${escapeHtml(t.title)}</span></div>`).join('')}${ts.length>4?`<div class="cal-more">+${ts.length-4} more</div>`:''}</div>`;
+  }
+  document.getElementById('tkCalGrid').innerHTML=html;
+  const nd=shown.filter(t=>!t.dueDate && t.status!=='done');
+  document.getElementById('tkNoDue').innerHTML = nd.length ? `<b>No due date yet (${nd.length}):</b> ${nd.map(t=>escapeHtml(t.title)).join(' · ')}` : '';
 }
 async function addTaskFromForm(){
   const inp = document.getElementById('tkNewTitle');
@@ -4572,11 +4631,29 @@ document.getElementById('tkList').addEventListener('change', async e=>{
     await saveTask(t);
     return;
   }
+  if(e.target.classList.contains('tk-details')){ t.details = e.target.value; await saveTask(t); return; }
+  if(e.target.classList.contains('tk-due-in')){ t.dueDate = e.target.value; renderTasks(); await saveTask(t); return; }
   if(e.target.classList.contains('tk-assignee')) t.assignee = e.target.value;
   else if(e.target.classList.contains('tk-status')) t.status = e.target.value;
   else return;
   renderTasks();
   await saveTask(t);
+});
+document.getElementById('tkList').addEventListener('input', e=>{ if(e.target.classList.contains('tk-title-input')) taSize(e.target); });
+document.getElementById('tkList').addEventListener('click', e=>{
+  if(e.target.closest('.tk-del, select, input, textarea, .tk-more')) return;
+  const card=e.target.closest('.tk-card'); if(!card) return;
+  const id=card.dataset.id; if(taskState.open.has(id)) taskState.open.delete(id); else taskState.open.add(id);
+  renderTasks();
+});
+document.getElementById('tkViews').addEventListener('click', e=>{ const b=e.target.closest('.tk-view'); if(!b) return; taskState.view=b.dataset.v; renderTasks(); });
+document.getElementById('tkCalPrev').onclick=()=>{ taskState.month=new Date(taskState.month.getFullYear(),taskState.month.getMonth()-1,1); renderTasks(); };
+document.getElementById('tkCalNext').onclick=()=>{ taskState.month=new Date(taskState.month.getFullYear(),taskState.month.getMonth()+1,1); renderTasks(); };
+document.getElementById('tkCalToday').onclick=()=>{ const d=new Date(); taskState.month=new Date(d.getFullYear(),d.getMonth(),1); renderTasks(); };
+document.getElementById('tkCalGrid').addEventListener('click', e=>{
+  const c=e.target.closest('.cal-chip.tk'); if(!c) return;
+  taskState.open.add(c.dataset.tid); taskState.view='board'; renderTasks();
+  const el=document.querySelector('.tk-card[data-id="'+c.dataset.tid+'"]'); if(el) el.scrollIntoView({block:'center'});
 });
 document.getElementById('tkList').addEventListener('click', async e=>{
   if(!e.target.closest('.tk-del')) return;
@@ -4594,14 +4671,14 @@ function setupTaskRealtime(){
     sb.channel('kong-tasks')
       .on('postgres_changes', { event:'*', schema:'public', table:'kong_tasks' }, ()=>{
         clearTimeout(taskRefreshTimer);
-        taskRefreshTimer = setTimeout(()=>{ const a=document.activeElement; if(a && (a.tagName==='INPUT'||a.tagName==='SELECT')){ taskRefreshTimer=setTimeout(loadTasks,2500); return; } loadTasks(); }, 300);
+        taskRefreshTimer = setTimeout(()=>{ const a=document.activeElement; if(a && (a.tagName==='INPUT'||a.tagName==='SELECT'||a.tagName==='TEXTAREA')){ taskRefreshTimer=setTimeout(loadTasks,2500); return; } loadTasks(); }, 300);
       })
       .subscribe();
   }catch(e){ console.error('task realtime failed', e); }
-  setInterval(()=>{ const a=document.activeElement; if(!document.hidden && !(a && (a.tagName==='INPUT'||a.tagName==='SELECT'))) loadTasks(); }, 30000);
+  setInterval(()=>{ const a=document.activeElement; if(!document.hidden && !(a && (a.tagName==='INPUT'||a.tagName==='SELECT'||a.tagName==='TEXTAREA'))) loadTasks(); }, 30000);
 }
 
-document.getElementById('tkList').addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target.classList.contains('tk-title-input')) e.target.blur(); });
+document.getElementById('tkList').addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target.classList.contains('tk-title-input')){ e.preventDefault(); e.target.blur(); } });
 
 // ---------- Brainstorm (sticky-note canvas, isolated + live) ----------
 // Own `kong_notes` table, single-row upserts/deletes only — same isolation as the Task list.
