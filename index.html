@@ -796,6 +796,61 @@
     .btn:hover{ transform: none !important; }
     *{ scroll-behavior: auto !important; }
   }
+
+  /* ================= LIQUID GLASS (glossy edge, still dark) ================= */
+  .glass{
+    background:
+      radial-gradient(120% 80% at 0% 0%, rgba(255,255,255,0.16) 0%, rgba(255,255,255,0) 45%),
+      linear-gradient(160deg, rgba(255,255,255,0.07), rgba(255,255,255,0.015) 50%, rgba(255,255,255,0.05)),
+      rgba(8,20,14,0.52);
+    border:1px solid rgba(255,255,255,0.06);
+    box-shadow:
+      0 18px 50px rgba(0,0,0,0.5),
+      0 2px 6px rgba(0,0,0,0.35),
+      inset 0 1.5px 0 rgba(255,255,255,0.38),
+      inset 1px 0 0 rgba(255,255,255,0.14),
+      inset 0 -1.5px 0 rgba(120,255,200,0.12),
+      inset 0 0 28px rgba(255,255,255,0.045);
+    transition:box-shadow .25s ease, border-color .25s ease;
+  }
+  .glass::before{ background:linear-gradient(118deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.05) 22%, rgba(255,255,255,0) 40%); }
+  /* shiny rim: bright on the top-left edge, soft mint on the bottom-right */
+  .glass::after{
+    content:''; position:absolute; inset:0; border-radius:inherit; padding:1.3px; pointer-events:none;
+    background:linear-gradient(135deg, rgba(255,255,255,0.75) 0%, rgba(255,255,255,0.12) 22%, rgba(255,255,255,0.03) 55%, rgba(140,255,205,0.5) 100%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite:xor;
+    mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  }
+  .glass:hover{ border-color:rgba(255,255,255,0.1); box-shadow:0 22px 60px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.35), inset 0 1.5px 0 rgba(255,255,255,0.5), inset 1px 0 0 rgba(255,255,255,0.2), inset 0 -1.5px 0 rgba(120,255,200,0.2), inset 0 0 30px rgba(255,255,255,0.06); }
+  .glass.modal::after, .sm-panel.glass::after{ display:none; } /* scrolling panels keep the inner edge light only */
+  .glass.modal{ background:linear-gradient(160deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02)), rgba(8,20,14,0.82); }
+  .btn{ background:linear-gradient(180deg, rgba(255,255,255,0.16), rgba(255,255,255,0.04)); border:1px solid rgba(255,255,255,0.12);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.35), inset 0 -1px 0 rgba(0,0,0,0.25), 0 4px 14px rgba(0,0,0,0.3); }
+  .btn:hover{ background:linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.07)); }
+  .btn.primary{ background:linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 48%), linear-gradient(135deg, var(--violet), var(--aurora-teal)); border:1px solid rgba(255,255,255,0.35);
+    box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.7), inset 0 -2px 4px rgba(0,0,0,0.18), 0 8px 22px rgba(124,92,255,0.35); }
+  .btn.primary.report-btn{ background:linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0) 48%), linear-gradient(135deg, var(--amber), var(--coral)); }
+  .tabs{ background:linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.1);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -1px 0 rgba(0,0,0,0.3), 0 6px 20px rgba(0,0,0,0.3); }
+  .tab.active{ background:linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 52%), linear-gradient(135deg, var(--violet), var(--aurora-teal));
+    box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.75), inset 0 -2px 4px rgba(0,0,0,0.15), 0 4px 14px rgba(124,92,255,0.35); }
+  .sidebar{ background:linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.01)), rgba(8,18,13,0.5);
+    border-right:1px solid rgba(255,255,255,0.1); box-shadow:inset -1px 0 0 rgba(255,255,255,0.12), 12px 0 40px rgba(0,0,0,0.35); }
+  .icon-btn, .hamburger-btn{ background:linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03)); box-shadow:inset 0 1px 0 rgba(255,255,255,0.3); }
+  input, select, textarea{ box-shadow:inset 0 2px 6px rgba(0,0,0,0.35), inset 0 -1px 0 rgba(255,255,255,0.08); }
+  .cal-cell, .fb-item, .fb-type-btn, .sm-stat{ box-shadow:inset 0 1px 0 rgba(255,255,255,0.12); }
+  /* blur only where the device can afford it (mobile keeps the earlier no-blur performance setup) */
+  @media (hover:hover) and (pointer:fine){
+    .glass{ -webkit-backdrop-filter:blur(28px) saturate(190%) brightness(1.06); backdrop-filter:blur(28px) saturate(190%) brightness(1.06); }
+    .tabs{ -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); }
+    .sidebar{ -webkit-backdrop-filter:blur(26px) saturate(180%); backdrop-filter:blur(26px) saturate(180%); }
+  }
+  /* phones/tablets: same glossy look, but opaque-ish and cheap to paint */
+  @media (hover:none), (pointer:coarse){
+    .glass{ background:radial-gradient(120% 80% at 0% 0%, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0) 45%), rgba(11,22,16,0.94);
+      box-shadow:0 6px 18px rgba(0,0,0,0.4), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 1px 0 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(120,255,200,0.12) !important; }
+    .glass:hover{ box-shadow:0 6px 18px rgba(0,0,0,0.4), inset 0 1.5px 0 rgba(255,255,255,0.32), inset 1px 0 0 rgba(255,255,255,0.1) !important; }
+  }
 </style>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
