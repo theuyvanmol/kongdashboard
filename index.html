@@ -963,6 +963,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
         <span>Feedback</span>
       </button>
+      <a class="tab" href="sales.html" target="_blank" rel="noopener" style="text-decoration:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        <span>Sales page ↗</span>
+      </a>
     </div>
   </nav>
 
@@ -4477,7 +4481,7 @@ document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar
 // ---------- top-level section switching (Dashboard / Marketing / Task list) ----------
 document.getElementById('sectionNav').addEventListener('click', (e)=>{
   const btn = e.target.closest('.tab');
-  if(!btn) return;
+  if(!btn || !btn.dataset.section) return; // the "Sales page" entry is a plain link to its own page
   document.querySelectorAll('#sectionNav .tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
   const section = btn.dataset.section;
