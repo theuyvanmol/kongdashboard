@@ -78,6 +78,12 @@ h2{font-size:14px;margin:18px 4px 10px;color:var(--t2);font-weight:800;letter-sp
 .cel .pill{margin-top:12px;width:100%;padding:13px;background:var(--green);border:none;color:#fff;font-size:15px}
 .confetti{position:fixed;top:-20px;font-size:22px;z-index:60;pointer-events:none;animation:fall linear forwards}
 @keyframes fall{to{transform:translateY(110vh) rotate(540deg);opacity:.9}}
+.bar{cursor:pointer;-webkit-tap-highlight-color:transparent}.bar.sel span{color:#fff;font-weight:800}.bar.sel i{outline:2px solid rgba(255,255,255,.8);outline-offset:2px}
+.hintm{font-size:11.5px;color:var(--t3);text-align:center;margin-top:10px}
+.md{margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.md .mh{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}.md .mh b{font-size:16px}.md .mh span{margin-left:auto;font-family:'Inter';font-weight:800;font-size:22px;color:var(--mint)}
+.md .sr{display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}.md .sr .n{flex:1}.md .sr small{display:block;color:var(--t3);font-size:11px}.md .sr .c{font-family:'Inter';font-weight:800;color:var(--mint)}
+.md .empty{color:var(--t3);font-size:13px;padding:8px 0}
 </style></head><body>
 <div class="wrap">
   <div class="top"><h1><span id="ttl"></span><small id="subttl"></small></h1><button class="pill on" id="th">ไทย</button><button class="pill" id="en">EN</button></div>
@@ -88,7 +94,7 @@ h2{font-size:14px;margin:18px 4px 10px;color:var(--t2);font-weight:800;letter-sp
     <div class="glass mini"><div class="lbl" id="yearLbl"></div><div class="num" id="yearNum">฿0</div><div class="hint" id="yearHint"></div></div>
   </div>
   <h2 id="hMonths"></h2>
-  <div class="glass"><div class="chart" id="chart"></div></div>
+  <div class="glass"><div class="chart" id="chart"></div><div class="hintm" id="chartHint"></div><div id="monthDetail"></div></div>
   <h2 id="hStudios"></h2>
   <div id="studios"></div>
   <h2 id="hFeed"></h2>
@@ -124,6 +130,14 @@ async function load(){
 const THB=n=>Math.round(n).toLocaleString('en-US');
 const mine=()=>inv.filter(i=>i.mgr===me);
 const comm=i=>i.total*RATE;
+let selM=null;
+function renderMonth(){const el=document.getElementById('monthDetail');if(selM===null){el.innerHTML='';return}
+ const t=T[L];const rows=mine().filter(i=>i.paid&&i.paidOn.getFullYear()===YR&&i.paidOn.getMonth()===selM);
+ const by={};rows.forEach(i=>{(by[i.studio]=by[i.studio]||{c:0,n:0,amt:0});by[i.studio].c+=comm(i);by[i.studio].n++;by[i.studio].amt+=i.total});
+ const tot=rows.reduce((a,i)=>a+comm(i),0);
+ const list=Object.entries(by).sort((a,b)=>b[1].c-a[1].c);
+ el.innerHTML=`<div class="md"><div class="mh"><b>${t.mon[selM]} ${YR}</b><span>฿${THB(tot)}</span></div>`+(list.length?list.map(([st,v])=>`<div class="sr"><div class="n">${st}<small>${v.n} ${L==='th'?'ใบ · ยอดขาย':'invoice(s) · sales'} ฿${THB(v.amt)}</small></div><div class="c">+฿${THB(v.c)}</div></div>`).join(''):`<div class="empty">${L==='th'?'ยังไม่มีการจ่ายเงินในเดือนนี้':'No payments this month yet'}</div>`)+`</div>`}
+document.getElementById('chart').addEventListener('click',e=>{const b=e.target.closest('.bar');if(!b)return;const m=+b.dataset.m;selM=(selM===m)?null:m;document.querySelectorAll('#chart .bar').forEach(x=>x.classList.toggle('sel',+x.dataset.m===selM));renderMonth()});
 function stats(){const m=mine();const byM=Array(12).fill(0);m.filter(i=>i.paid&&i.paidOn.getFullYear()===YR).forEach(i=>byM[i.paidOn.getMonth()]+=comm(i));const wait=m.filter(i=>!i.paid).reduce((a,i)=>a+comm(i),0);return{byM,wait,year:byM.reduce((a,b)=>a+b,0)}}
 function countUp(el,to,pre=''){const from=+el.dataset.v||0;el.dataset.v=to;const t0=performance.now();(function f(t){const k=Math.min(1,(t-t0)/900),e=1-Math.pow(1-k,3);el.textContent=pre+THB(from+(to-from)*e);if(k<1)requestAnimationFrame(f)})(t0)}
 function render(){const t=T[L];document.documentElement.lang=L;
@@ -131,7 +145,8 @@ function render(){const t=T[L];document.documentElement.lang=L;
  th.classList.toggle('on',L==='th');en.classList.toggle('on',L==='en');
  who.innerHTML=Object.entries(MGR).map(([k,m])=>`<button class="pill ${k===me?'on':''}" data-k="${k}">👤 ${m.name}</button>`).join('');
  const s=stats();countUp(heroNum,s.byM[CUR]);countUp(waitNum,s.wait,'฿');countUp(yearNum,s.year,'฿');
- const mx=Math.max(1,...s.byM);chart.innerHTML=s.byM.map((v,i)=>`<div class="bar ${i===CUR?'cur':''}" style="${i>CUR?'opacity:.35':''}"><b>${v&&i>=CUR-2&&i<=CUR?THB(v):''}</b><i style="height:3px" data-h="${Math.max(3,v/mx*100)}"></i><span>${t.mon[i]}</span></div>`).join('');
+ const mx=Math.max(1,...s.byM);chart.innerHTML=s.byM.map((v,i)=>`<div class="bar ${i===CUR?'cur':''} ${i===selM?'sel':''}" data-m="${i}" style="${i>CUR?'opacity:.35':''}"><b>${v&&i>=CUR-2&&i<=CUR?THB(v):''}</b><i style="height:3px" data-h="${Math.max(3,v/mx*100)}"></i><span>${t.mon[i]}</span></div>`).join('');
+ chartHint.textContent=L==='th'?'แตะแท่งเพื่อดูรายละเอียดของเดือนนั้น':'Tap a month to see its details';renderMonth();
  requestAnimationFrame(()=>requestAnimationFrame(()=>document.querySelectorAll('#chart i').forEach(e=>e.style.height=e.dataset.h+'%')));
  studios.innerHTML=MGR[me].studios.map(st=>{const ii=mine().filter(i=>i.studio===st).sort((a,b)=>b.d-a.d);const sold={};ii.filter(i=>i.paid).forEach(i=>Object.entries(i.items).forEach(([p,q])=>sold[p]=(sold[p]||0)+q));const cm=ii.filter(i=>i.paid&&i.paidOn.getMonth()===CUR&&i.paidOn.getFullYear()===YR).reduce((a,i)=>a+comm(i),0);
   return`<div class="glass studio" data-s="${st}"><button><div class="s-head"><div class="nm">${st}</div><div class="cm">฿${THB(cm)}</div><div class="chev">›</div></div><div class="chips">${Object.entries(sold).map(([p,q])=>`<span class="chip">${P[p][L==='th'?0:1]}<b>×${q}</b></span>`).join('')}</div></button>
