@@ -870,6 +870,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script src="https://api.mapbox.com/mapbox-gl-js/v3.7.0/mapbox-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -1051,6 +1052,11 @@
     <div class="section-head">
       <h2 data-i18n="hdrSnapshot">Snapshot</h2>
       <div class="section-actions">
+        <select id="xlsMonthSelect" class="task-filter" style="max-width:200px;" aria-label="Excel period"></select>
+        <button class="btn" id="downloadXlsBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Excel statement
+        </button>
         <select id="pdfMonthSelect" class="task-filter" style="max-width:200px;"></select>
         <button class="btn primary" id="downloadPdfBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -2822,6 +2828,8 @@ function populatePdfMonthSelect(){
   const months = [...new Set(state.invoices.map(inv=>monthKey(inv.date)))].filter(Boolean).sort().reverse();
   sel.innerHTML = months.map(mk=>`<option value="${mk}">${monthLabel(mk)}</option>`).join('') || '<option value="">No data yet</option>';
   if(prev && months.includes(prev)) sel.value = prev;
+  const xs = document.getElementById('xlsMonthSelect');
+  if(xs){ const xp = xs.value; xs.innerHTML = '<option value="all">All months</option>' + months.map(mk=>`<option value="${mk}">${monthLabel(mk)}</option>`).join(''); if(xp && (xp==='all'||months.includes(xp))) xs.value = xp; }
 }
 
 function renderSummaryPrint(){
@@ -2847,6 +2855,108 @@ function renderSummaryPrint(){
     .map((p,i)=>({label:p.name, value:p.revenue, color:palette[i%palette.length]}));
   buildHBarChartLight('spProductChart', productEntries);
 }
+
+// ---------- Excel financial statement export ----------
+// buildFinancialSpec() turns the dashboard data into a plain description of the workbook (cells, formulas, styles);
+// writeFinancialWorkbook() then hands that to ExcelJS. Read-only: nothing here changes any data.
+function xlColLetter(n){ let s=''; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
+function monthKeysBetween(a,b){ const out=[]; let [y,m]=a.split('-').map(Number); const [ey,em]=b.split('-').map(Number); while(y<ey||(y===ey&&m<=em)){ out.push(y+'-'+String(m).padStart(2,'0')); m++; if(m>12){m=1;y++;} } return out; }
+function buildFinancialSpec(selection){
+  const NUM='#,##0', NEG='#,##0;[Red]-#,##0', PCT='0.0%';
+  const single = selection && selection!=='all';
+  let months;
+  if(single) months=[selection]; else { const all=allMonthsWithActivity(); months=monthKeysBetween(all[0], all[all.length-1]); }
+  const short = mk=>{ const [y,m]=mk.split('-'); return new Date(+y,+m-1,1).toLocaleDateString('en-US',{month:'short',year:'numeric'}); };
+  const period = single ? monthLabel(months[0]) : monthLabel(months[0])+' – '+monthLabel(months[months.length-1]);
+  const inRange = mk => months.includes(mk);
+  const invs = state.invoices.filter(i=>i.date && inRange(monthKey(i.date)));
+  const H = t=>({v:t,b:1,fill:'FF0F3D2A',c:'FFFFFFFF',al:'center'});
+  const HL = t=>({v:t,b:1,fill:'FF0F3D2A',c:'FFFFFFFF'});
+  const nMonths = months.length;
+
+  // --- Revenue by Studio (paid invoices, by invoice month) ---
+  const studios=[...new Set(invs.map(i=>i.client))];
+  const rev = {}; studios.forEach(st=>{ rev[st]=months.map(()=>0); });
+  invs.filter(i=>i.paid).forEach(i=>{ rev[i.client][months.indexOf(monthKey(i.date))] += invoiceTotal(i); });
+  const studioRows = studios.map(st=>({st, vals:rev[st], tot:rev[st].reduce((a,b)=>a+b,0)})).sort((a,b)=>b.tot-a.tot);
+  const grand = studioRows.reduce((a,r)=>a+r.tot,0);
+  const rsRows=[[{v:'Revenue by studio — paid invoices',b:1,sz:14}],[{v:period,c:'FF6B7080'}],[],[HL('Studio'),...months.map(m=>H(short(m))),H('Total'),H('Share')]];
+  const rsFirst=rsRows.length+1;
+  studioRows.forEach((r,i)=>{ const row=rsFirst+i; rsRows.push([{v:r.st},...r.vals.map(v=>({v,n:NUM})),{v:r.tot,f:`SUM(B${row}:${xlColLetter(nMonths+1)}${row})`,n:NUM,b:1},{v:grand?r.tot/grand:0,f:`IF($${xlColLetter(nMonths+2)}$${rsFirst+studioRows.length}=0,0,${xlColLetter(nMonths+2)}${row}/$${xlColLetter(nMonths+2)}$${rsFirst+studioRows.length})`,n:PCT}]); });
+  const rsTotal=rsFirst+studioRows.length;
+  const colTot = months.map((_,j)=>studioRows.reduce((a,r)=>a+r.vals[j],0));
+  rsRows.push([{v:'Total',b:1,t:1,fill:'FFE7F3EC'},...colTot.map((v,j)=>({v,f:studioRows.length?`SUM(${xlColLetter(j+2)}${rsFirst}:${xlColLetter(j+2)}${rsTotal-1})`:null,n:NUM,b:1,t:1,fill:'FFE7F3EC'})),{v:grand,f:studioRows.length?`SUM(${xlColLetter(nMonths+2)}${rsFirst}:${xlColLetter(nMonths+2)}${rsTotal-1})`:null,n:NUM,b:1,t:1,fill:'FFE7F3EC'},{v:grand?1:0,n:PCT,b:1,t:1,fill:'FFE7F3EC'}]);
+
+  // --- Expenses (fixed monthly + one-off) ---
+  const exRows=[[{v:'Expenses',b:1,sz:14}],[{v:period,c:'FF6B7080'}],[],[HL('Expense'),HL('Type'),HL('Date'),...months.map(m=>H(short(m))),H('Total')]];
+  const exFirst=exRows.length+1; let ri=0; const expMonthTot=months.map(()=>0);
+  const addEx=(name,type,date,vals)=>{ const row=exFirst+ri++; const tot=vals.reduce((a,b)=>a+b,0); vals.forEach((v,j)=>expMonthTot[j]+=v);
+    exRows.push([{v:name},{v:type,c:'FF6B7080'},{v:date||''},...vals.map(v=>({v,n:NUM})),{v:tot,f:`SUM(D${row}:${xlColLetter(nMonths+3)}${row})`,n:NUM,b:1}]); };
+  state.fixedExpenses.forEach(e=>addEx(e.name,'Fixed (monthly)','',months.map(()=>e.amount||0)));
+  state.expenses.filter(e=>e.date&&inRange(monthKey(e.date))).sort((a,b)=>a.date<b.date?-1:1).forEach(e=>addEx(e.name+(e.note?' — '+e.note:''),'One-off',e.date,months.map(m=>monthKey(e.date)===m?(e.amount||0):0)));
+  const exTotal=exFirst+ri; const exGrand=expMonthTot.reduce((a,b)=>a+b,0);
+  exRows.push([{v:'Total',b:1,t:1,fill:'FFE7F3EC'},{v:'',t:1,fill:'FFE7F3EC'},{v:'',t:1,fill:'FFE7F3EC'},...expMonthTot.map((v,j)=>({v,f:ri?`SUM(${xlColLetter(j+4)}${exFirst}:${xlColLetter(j+4)}${exTotal-1})`:null,n:NUM,b:1,t:1,fill:'FFE7F3EC'})),{v:exGrand,f:ri?`SUM(${xlColLetter(nMonths+4)}${exFirst}:${xlColLetter(nMonths+4)}${exTotal-1})`:null,n:NUM,b:1,t:1,fill:'FFE7F3EC'}]);
+
+  // --- Financial statement (links to the other two sheets) ---
+  const fsRows=[[{v:'Kong Tattoo Care — Financial Statement',b:1,sz:16}],[{v:period,c:'FF6B7080'}],[{v:'Generated '+fmtDate(todayISO()),c:'FF6B7080'}],[],
+    [HL('Month'),H('Invoiced'),H('Revenue (paid)'),H('Outstanding'),H('Expenses'),H('Net profit'),H('Margin')]];
+  const fsFirst=fsRows.length+1;
+  months.forEach((m,j)=>{ const row=fsFirst+j; const invoiced=invs.filter(i=>monthKey(i.date)===m).reduce((a,i)=>a+invoiceTotal(i),0); const r=colTot[j], e=expMonthTot[j];
+    fsRows.push([{v:short(m)},{v:invoiced,n:NUM},{v:r,f:studioRows.length?`'Revenue by Studio'!${xlColLetter(j+2)}${rsTotal}`:null,n:NUM},{v:invoiced-r,f:`B${row}-C${row}`,n:NUM},{v:e,f:ri?`'Expenses'!${xlColLetter(j+4)}${exTotal}`:null,n:NUM},{v:r-e,f:`C${row}-E${row}`,n:NEG,b:1},{v:r?(r-e)/r:0,f:`IF(C${row}=0,0,F${row}/C${row})`,n:PCT}]); });
+  const fsLast=fsFirst+nMonths-1, fsT=fsLast+1;
+  const sum=(c)=>({f:`SUM(${c}${fsFirst}:${c}${fsLast})`});
+  const tInv=invs.reduce((a,i)=>a+invoiceTotal(i),0);
+  fsRows.push([{v:'Total',b:1,t:1,fill:'FFE7F3EC'},{v:tInv,...sum('B'),n:NUM,b:1,t:1,fill:'FFE7F3EC'},{v:grand,...sum('C'),n:NUM,b:1,t:1,fill:'FFE7F3EC'},{v:tInv-grand,...sum('D'),n:NUM,b:1,t:1,fill:'FFE7F3EC'},{v:exGrand,...sum('E'),n:NUM,b:1,t:1,fill:'FFE7F3EC'},{v:grand-exGrand,f:`C${fsT}-E${fsT}`,n:NEG,b:1,t:1,fill:'FFE7F3EC'},{v:grand?(grand-exGrand)/grand:0,f:`IF(C${fsT}=0,0,F${fsT}/C${fsT})`,n:PCT,b:1,t:1,fill:'FFE7F3EC'}]);
+  fsRows.push([]);
+  fsRows.push([{v:'Revenue = paid invoices, counted in the month they were invoiced. Outstanding = invoiced but not yet paid. Expenses = fixed monthly costs (applied to every month) + one-off expenses in that month. Net profit = Revenue − Expenses.',c:'FF6B7080',wrap:1}]);
+
+  // --- Invoice list ---
+  const ivRows=[[{v:'Invoices',b:1,sz:14}],[{v:period,c:'FF6B7080'}],[],[HL('Date'),HL('Invoice no.'),HL('Studio'),H('Total'),HL('Status'),HL('Paid date')]];
+  invs.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(i=>ivRows.push([{v:i.date},{v:i.invoiceNo||''},{v:i.client},{v:invoiceTotal(i),n:NUM},{v:i.paid?'Paid':'Unpaid',c:i.paid?'FF0E9668':'FFC23A2D',b:1},{v:i.paid?(i.paidDate||''):''}]));
+
+  return { period, sheets:[
+    {name:'Financial Statement', widths:[16,16,16,16,16,16,12], freeze:5, rows:fsRows},
+    {name:'Revenue by Studio', widths:[34,...months.map(()=>14),16,10], freeze:4, rows:rsRows},
+    {name:'Expenses', widths:[36,16,12,...months.map(()=>14),16], freeze:4, rows:exRows},
+    {name:'Invoices', widths:[12,26,34,14,10,12], freeze:4, rows:ivRows},
+  ]};
+}
+async function writeFinancialWorkbook(spec){
+  if(typeof ExcelJS==='undefined') throw new Error('Excel library did not load');
+  const wb=new ExcelJS.Workbook(); wb.creator='Kong Tattoo Care Dashboard'; wb.created=new Date();
+  spec.sheets.forEach(sh=>{
+    const ws=wb.addWorksheet(sh.name,{views:[{state:'frozen',ySplit:sh.freeze||0,showGridLines:false}]});
+    sh.widths.forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
+    sh.rows.forEach((r,ri)=>{
+      const row=ws.getRow(ri+1);
+      r.forEach((c,ci)=>{
+        if(c===undefined||c===null) return;
+        const cell=row.getCell(ci+1);
+        cell.value = c.f ? {formula:c.f, result:c.v} : c.v;
+        if(c.n) cell.numFmt=c.n;
+        const font={name:'Calibri',size:c.sz||11}; if(c.b) font.bold=true; if(c.c) font.color={argb:c.c}; cell.font=font;
+        if(c.fill) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:c.fill}};
+        if(c.t) cell.border={top:{style:'thin',color:{argb:'FF0F3D2A'}}};
+        if(c.al) cell.alignment={horizontal:c.al};
+        if(c.wrap){ cell.alignment={wrapText:true,vertical:'top'}; }
+      });
+      if(r.length===1 && r[0] && r[0].wrap){ ws.mergeCells(ri+1,1,ri+1,7); row.height=48; }
+    });
+  });
+  const buf=await wb.xlsx.writeBuffer();
+  return new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+document.getElementById('downloadXlsBtn').addEventListener('click', async ()=>{
+  const btn=document.getElementById('downloadXlsBtn'); const orig=btn.innerHTML; btn.disabled=true; btn.textContent='Building Excel…';
+  try{
+    const sel=document.getElementById('xlsMonthSelect').value||'all';
+    const spec=buildFinancialSpec(sel);
+    const blob=await writeFinancialWorkbook(spec);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='Kong-Financial-Statement-'+(sel==='all'?'All-Months':sel)+'.xlsx'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  }catch(e){ console.error('excel export failed', e); alert('Could not build the Excel file: '+(e.message||e)); }
+  btn.disabled=false; btn.innerHTML=orig;
+});
 
 document.getElementById('downloadPdfBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('downloadPdfBtn');
