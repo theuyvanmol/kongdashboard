@@ -2914,17 +2914,86 @@ function buildFinancialSpec(selection){
   const ivRows=[[{v:'Invoices',b:1,sz:14}],[{v:period,c:'FF6B7080'}],[],[HL('Date'),HL('Invoice no.'),HL('Studio'),H('Total'),HL('Status'),HL('Paid date')]];
   invs.slice().sort((a,b)=>a.date<b.date?-1:1).forEach(i=>ivRows.push([{v:i.date},{v:i.invoiceNo||''},{v:i.client},{v:invoiceTotal(i),n:NUM},{v:i.paid?'Paid':'Unpaid',c:i.paid?'FF0E9668':'FFC23A2D',b:1},{v:i.paid?(i.paidDate||''):''}]));
 
-  return { period, sheets:[
+  const expItems=[]; state.fixedExpenses.forEach(e=>expItems.push([e.name,(e.amount||0)*nMonths])); state.expenses.filter(e=>e.date&&inRange(monthKey(e.date))).forEach(e=>expItems.push([e.name,e.amount||0]));
+  const data={ labels:months.map(short), revenue:colTot, expenses:expMonthTot, net:colTot.map((v,j)=>v-expMonthTot[j]), studios:studioRows.map(r=>[r.st,r.tot]), expItems:expItems.filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]), totals:{rev:grand,exp:exGrand,net:grand-exGrand,outstanding:tInv-grand}, fsT, single };
+  return { period, data, sheets:[
     {name:'Financial Statement', widths:[16,16,16,16,16,16,12], freeze:5, rows:fsRows},
     {name:'Revenue by Studio', widths:[34,...months.map(()=>14),16,10], freeze:4, rows:rsRows},
     {name:'Expenses', widths:[36,16,12,...months.map(()=>14),16], freeze:4, rows:exRows},
     {name:'Invoices', widths:[12,26,34,14,10,12], freeze:4, rows:ivRows},
   ]};
 }
+
+// ---- charts for the Excel file (drawn on a canvas, embedded as pictures) ----
+const XL_PAL=['#0E9668','#2B7FB0','#C9942F','#7C5CFF','#C23A2D','#3FBFA0','#8A93A6','#E07BA0'];
+function xlShort(n){ const a=Math.abs(n); const t=a>=1e6?(a/1e6).toFixed(a%1e6?1:0)+'M':a>=1e3?(a/1e3).toFixed(a%1e3?1:0)+'k':String(Math.round(a)); return (n<0?'-':'')+t; }
+function xlCanvas(w,h,title,sub){ const c=document.createElement('canvas'); c.width=w*2; c.height=h*2; const g=c.getContext('2d'); g.scale(2,2); g.fillStyle='#fff'; g.fillRect(0,0,w,h); g.strokeStyle='#E3E8E5'; g.lineWidth=1; g.strokeRect(.5,.5,w-1,h-1);
+  g.fillStyle='#0F3D2A'; g.font='700 16px Calibri, Arial, sans-serif'; g.textAlign='left'; g.fillText(title,18,28); if(sub){ g.fillStyle='#6B7080'; g.font='12px Calibri, Arial, sans-serif'; g.fillText(sub,18,46); } return {c,g,w,h}; }
+function xlNiceMax(v){ if(v<=0) return 1; const e=Math.pow(10,Math.floor(Math.log10(v))); const f=v/e; return (f<=1?1:f<=2?2:f<=5?5:10)*e; }
+function xlChartRevExp(d){
+  const {c,g,w,h}=xlCanvas(860,400,'Revenue vs expenses','Paid revenue, expenses and net profit by month (THB)');
+  const L=64,R=20,T=70,B=44, pw=w-L-R, ph=h-T-B; const n=d.labels.length;
+  const vmin=Math.min(0,...d.net), vmax=Math.max(1,...d.revenue,...d.expenses,...d.net); const stepRaw=(vmax-vmin)/5; const e10=Math.pow(10,Math.floor(Math.log10(stepRaw))); const fr=stepRaw/e10; const step=(fr<=1?1:fr<=2?2:fr<=2.5?2.5:fr<=5?5:10)*e10;
+  const base=Math.floor(vmin/step)*step, hi=Math.ceil(vmax/step)*step, span=hi-base, nTicks=Math.round(span/step);
+  const y=v=>T+ph-(v-base)/span*ph;
+  g.font='11px Calibri, Arial, sans-serif'; g.textAlign='right'; g.fillStyle='#6B7080'; g.strokeStyle='#EEF1EF';
+  for(let i=0;i<=nTicks;i++){ const v=base+step*i, yy=y(v); g.beginPath(); g.moveTo(L,yy); g.lineTo(w-R,yy); g.stroke(); g.fillText(xlShort(v),L-8,yy+4); }
+  const gw=pw/n, bw=Math.min(34,gw*0.30);
+  d.labels.forEach((lb,i)=>{ const cx=L+gw*i+gw/2;
+    [[d.revenue[i],'#0E9668',-bw-1],[d.expenses[i],'#E0883A',1]].forEach(([v,col,off])=>{ g.fillStyle=col; const y0=y(0), y1=y(v); g.fillRect(cx+off,Math.min(y0,y1),bw,Math.abs(y0-y1)||1); if(v>0&&n<=14){ g.fillStyle='#35403A'; g.textAlign='center'; g.font='10px Calibri, Arial, sans-serif'; g.fillText(xlShort(v),cx+off+bw/2,Math.min(y0,y1)-4); } });
+    g.fillStyle='#35403A'; g.textAlign='center'; g.font='11px Calibri, Arial, sans-serif'; g.fillText(lb,cx,h-B+18); });
+  if(n>1){ g.strokeStyle='#2B3A8C'; g.lineWidth=2.5; g.beginPath(); d.net.forEach((v,i)=>{ const x=L+gw*i+gw/2; i?g.lineTo(x,y(v)):g.moveTo(x,y(v)); }); g.stroke(); g.fillStyle='#2B3A8C'; d.net.forEach((v,i)=>{ g.beginPath(); g.arc(L+gw*i+gw/2,y(v),3.5,0,7); g.fill(); }); }
+  else { g.fillStyle=d.net[0]>=0?'#2B3A8C':'#C23A2D'; g.font='700 12px Calibri, Arial, sans-serif'; g.textAlign='center'; g.fillText('Net profit '+xlShort(d.net[0]),L+pw/2,T-8); }
+  g.lineWidth=1; g.strokeStyle='#C9D1CC'; g.beginPath(); g.moveTo(L,y(0)); g.lineTo(w-R,y(0)); g.stroke();
+  let lx=w-R; [['Net profit','#2B3A8C'],['Expenses','#E0883A'],['Revenue','#0E9668']].forEach(([t,col])=>{ g.font='12px Calibri, Arial, sans-serif'; const tw=g.measureText(t).width; lx-=tw; g.fillStyle='#35403A'; g.textAlign='left'; g.fillText(t,lx,28); lx-=16; g.fillStyle=col; g.fillRect(lx,19,11,11); lx-=18; });
+  return c; }
+function xlChartNet(d){
+  const {c,g,w,h}=xlCanvas(420,400,'Net profit by month','Revenue minus expenses (THB)'); const L=54,R=16,T=64,B=44,pw=w-L-R,ph=h-T-B; const n=d.net.length;
+  const mx=xlNiceMax(Math.max(1,...d.net.map(Math.abs))); const y=v=>T+ph/2-(v/mx)*(ph/2);
+  g.font='11px Calibri, Arial, sans-serif'; g.textAlign='right'; g.fillStyle='#6B7080'; g.strokeStyle='#EEF1EF';
+  for(let i=-2;i<=2;i++){ const v=mx*i/2, yy=y(v); g.beginPath(); g.moveTo(L,yy); g.lineTo(w-R,yy); g.stroke(); g.fillText(xlShort(v),L-6,yy+4); }
+  const gw=pw/n, bw=Math.min(36,gw*0.6);
+  d.net.forEach((v,i)=>{ const cx=L+gw*i+gw/2; g.fillStyle=v>=0?'#0E9668':'#C23A2D'; const y0=y(0),y1=y(v); g.fillRect(cx-bw/2,Math.min(y0,y1),bw,Math.abs(y0-y1)||1); g.fillStyle='#35403A'; g.textAlign='center'; if(n<=10){ g.font='10px Calibri, Arial, sans-serif'; g.fillText(xlShort(v),cx,v>=0?y1-4:y1+12); } g.font='11px Calibri, Arial, sans-serif'; g.fillText(d.labels[i],cx,h-B+18); });
+  return c; }
+function xlChartStudios(d){
+  const rows=d.studios.filter(x=>x[1]>0).slice(0,10); const {c,g,w,h}=xlCanvas(860,Math.max(220,86+rows.length*30),'Revenue by studio','Top studios by paid revenue (THB)');
+  if(!rows.length){ g.fillStyle='#6B7080'; g.font='13px Calibri, Arial, sans-serif'; g.fillText('No paid revenue in this period yet.',18,90); return c; }
+  const L=190,R=90,T=64; const mx=rows[0][1], tot=d.totals.rev||1; const bh=20;
+  rows.forEach(([nm,v],i)=>{ const yy=T+i*30; g.fillStyle='#35403A'; g.font='12px Calibri, Arial, sans-serif'; g.textAlign='right'; g.fillText(nm.length>26?nm.slice(0,25)+'…':nm,L-10,yy+14);
+    const bw=(w-L-R)*v/mx; const gr=g.createLinearGradient(L,0,L+bw,0); gr.addColorStop(0,'#0E9668'); gr.addColorStop(1,'#5CD3A5'); g.fillStyle=gr; g.fillRect(L,yy,bw,bh);
+    g.fillStyle='#35403A'; g.textAlign='left'; g.font='700 11px Calibri, Arial, sans-serif'; g.fillText(xlShort(v)+'  ('+Math.round(v/tot*100)+'%)',L+bw+8,yy+14); });
+  return c; }
+function xlChartExpenses(d){
+  const {c,g,w,h}=xlCanvas(420,Math.max(300,100+Math.min(8,d.expItems.length)*0),'Where the money goes','Expenses by item (THB)');
+  if(!d.expItems.length){ g.fillStyle='#6B7080'; g.font='13px Calibri, Arial, sans-serif'; g.fillText('No expenses in this period.',18,90); return c; }
+  let items=d.expItems.slice(0,6); const rest=d.expItems.slice(6).reduce((a,x)=>a+x[1],0); if(rest>0) items.push(['Other',rest]); const tot=items.reduce((a,x)=>a+x[1],0);
+  const cx=110,cy=190,r=84; let a0=-Math.PI/2; items.forEach(([nm,v],i)=>{ const a1=a0+v/tot*Math.PI*2; g.fillStyle=XL_PAL[i%XL_PAL.length]; g.beginPath(); g.moveTo(cx,cy); g.arc(cx,cy,r,a0,a1); g.closePath(); g.fill(); a0=a1; });
+  g.fillStyle='#fff'; g.beginPath(); g.arc(cx,cy,r*0.58,0,7); g.fill(); g.fillStyle='#0F3D2A'; g.textAlign='center'; g.font='700 15px Calibri, Arial, sans-serif'; g.fillText(xlShort(tot),cx,cy+2); g.font='10px Calibri, Arial, sans-serif'; g.fillStyle='#6B7080'; g.fillText('total',cx,cy+16);
+  items.forEach(([nm,v],i)=>{ const yy=110+i*30; g.fillStyle=XL_PAL[i%XL_PAL.length]; g.fillRect(222,yy-9,11,11); g.fillStyle='#35403A'; g.textAlign='left'; g.font='12px Calibri, Arial, sans-serif'; g.fillText((nm.length>16?nm.slice(0,15)+'…':nm),240,yy); g.fillStyle='#6B7080'; g.font='11px Calibri, Arial, sans-serif'; g.fillText(xlShort(v)+' · '+Math.round(v/tot*100)+'%',240,yy+13); });
+  return c; }
+function xlChartImages(d){ return [ ['Revenue vs expenses',xlChartRevExp(d),860,400], ['Net profit',xlChartNet(d),420,400], ['Expenses',xlChartExpenses(d),420,400], ['Studios',xlChartStudios(d),860,null] ].map(([n,c,w])=>({name:n,png:c.toDataURL('image/png'),w:c.width/2,h:c.height/2})); }
+function addChartsSheet(wb, spec){
+  const d=spec.data; const ws=wb.addWorksheet('Charts',{views:[{showGridLines:false}]});
+  for(let i=1;i<=14;i++) ws.getColumn(i).width=13;
+  ws.getCell('A1').value='Kong Tattoo Care — Financial charts'; ws.getCell('A1').font={name:'Calibri',size:16,bold:true};
+  ws.getCell('A2').value=spec.period; ws.getCell('A2').font={name:'Calibri',size:11,color:{argb:'FF6B7080'}};
+  const fs="'Financial Statement'!";
+  const tiles=[['Revenue (paid)',fs+'C'+d.fsT,d.totals.rev,'FF0E9668'],['Expenses',fs+'E'+d.fsT,d.totals.exp,'FFE0883A'],['Net profit',fs+'F'+d.fsT,d.totals.net,d.totals.net>=0?'FF2B3A8C':'FFC23A2D'],['Outstanding',fs+'D'+d.fsT,d.totals.outstanding,'FFC9942F']];
+  tiles.forEach(([lbl,ref,val,col],i)=>{ const c0=1+i*3+(i?0:0); const a=ws.getCell(4,c0), b=ws.getCell(5,c0); ws.mergeCells(4,c0,4,c0+2); ws.mergeCells(5,c0,5,c0+2);
+    a.value=lbl; a.font={name:'Calibri',size:11,color:{argb:'FF6B7080'}}; a.alignment={horizontal:'center'}; a.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2F6F4'}};
+    b.value={formula:ref,result:val}; b.numFmt='"฿"#,##0;[Red]-"฿"#,##0'; b.font={name:'Calibri',size:20,bold:true,color:{argb:col}}; b.alignment={horizontal:'center',vertical:'middle'}; b.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF2F6F4'}}; ws.getRow(5).height=36; });
+  const imgs=xlChartImages(d); let top=6; // zero-based row of first picture
+  const place=(im,col,row)=>{ const id=wb.addImage({base64:im.png,extension:'png'}); ws.addImage(id,{tl:{col,row},ext:{width:im.w,height:im.h}}); };
+  place(imgs[0],0,top); const rowsPerPx=1/20; // default row height 15pt = 20px
+  const r2=top+Math.ceil(imgs[0].h/20)+1; place(imgs[1],0,r2); place(imgs[2],Math.ceil(430/ (13*7+5)),r2);
+  const r3=r2+Math.ceil(imgs[1].h/20)+1; place(imgs[3],0,r3);
+  ws.getCell(r3+Math.ceil(imgs[3].h/20)+2,1).value='Charts are pictures of the data at the time of export. The sheets that follow hold the live figures and formulas.'; ws.getCell(r3+Math.ceil(imgs[3].h/20)+2,1).font={name:'Calibri',size:10,italic:true,color:{argb:'FF6B7080'}};
+}
 async function writeFinancialWorkbook(spec){
   if(typeof ExcelJS==='undefined') throw new Error('Excel library did not load');
   const wb=new ExcelJS.Workbook(); wb.creator='Kong Tattoo Care Dashboard'; wb.created=new Date();
-  spec.sheets.forEach(sh=>{
+  spec.sheets.forEach((sh,shIdx)=>{
+    if(shIdx===1 && spec.data){ try{ addChartsSheet(wb, spec); }catch(e){ console.error('charts failed', e); } }
     const ws=wb.addWorksheet(sh.name,{views:[{state:'frozen',ySplit:sh.freeze||0,showGridLines:false}]});
     sh.widths.forEach((w,i)=>{ ws.getColumn(i+1).width=w; });
     sh.rows.forEach((r,ri)=>{
