@@ -380,6 +380,16 @@
   .stand-badge{ font-size:10.5px; font-weight:700; padding:5px 12px; border-radius:20px; white-space:nowrap; }
 
   /* ---- total stock banner ---- */
+  .stock-all{ padding:20px 22px; margin-bottom:16px; }
+  .stock-all .sa-top{ display:flex; align-items:center; gap:14px; }
+  .stock-all .sa-top > div:first-child{ flex:1; min-width:0; }
+  .stock-all .sa-label{ font-size:14px; font-weight:700; color:var(--text-2); }
+  .stock-all .sa-sub{ font-size:12px; color:var(--text-3); margin-top:3px; }
+  .stock-all .sa-num{ font-family:'JetBrains Mono',monospace; font-size:46px; font-weight:800; line-height:1; background:linear-gradient(180deg,#fff,var(--mint)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stock-all .sa-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .stock-all .sa-chip{ display:inline-flex; align-items:center; gap:7px; padding:7px 12px; border-radius:999px; font-size:12.5px; background:rgba(255,255,255,0.07); border:1px solid var(--glass-border); }
+  .stock-all .sa-chip b{ font-family:'JetBrains Mono',monospace; color:var(--mint); }
+  .stock-all .sa-chip.zero b{ color:var(--coral); }
   .stock-total-banner{
     display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
     padding:16px 18px; margin-bottom:16px; border-radius:14px;
@@ -1236,6 +1246,17 @@
   <div id="stockView" class="view">
     <div class="section-head">
       <h2 data-i18n="hdrStockGiven">Stock given to each studio</h2>
+    </div>
+
+    <div class="glass stock-all" id="stockAllBanner">
+      <div class="sa-top">
+        <div>
+          <div class="sa-label">Total stock left — all studios</div>
+          <div class="sa-sub" id="stockAllSub"></div>
+        </div>
+        <div class="sa-num" id="stockAllNum">0</div>
+      </div>
+      <div class="sa-chips" id="stockAllChips"></div>
     </div>
 
     <div class="glass" style="padding:18px 20px; margin-bottom:20px;">
@@ -5988,10 +6009,21 @@ function updateStockHeaderBadges(){
   if(!selectedStockStudio || !healthBadge) return;
   healthBadge.outerHTML = healthBadgeHtml(selectedStockStudio).replace('<span class="stand-badge"', '<span class="stand-badge" id="stockHealthBadge"');
 }
+// total units left across every studio (read-only; uses the same sanity-filtered per-studio numbers as the table)
+function renderStockAllTotal(){
+  const num = document.getElementById('stockAllNum'); if(!num) return;
+  const studios = allKnownStudios();
+  const per = state.products.map(p=>({ name:p.name, qty: studios.reduce((a,c)=>a+currentStockQty(c,p.id),0) }));
+  const total = per.reduce((a,x)=>a+x.qty,0);
+  num.textContent = total.toLocaleString('en-US');
+  document.getElementById('stockAllSub').textContent = `${studios.length} studio${studios.length===1?'':'s'} · ${per.filter(x=>x.qty>0).length} of ${per.length} products in stock`;
+  document.getElementById('stockAllChips').innerHTML = per.slice().sort((a,b)=>b.qty-a.qty).map(x=>`<span class="sa-chip ${x.qty<=0?'zero':''}">${escapeHtml(x.name)} <b>${x.qty.toLocaleString('en-US')}</b></span>`).join('');
+}
 function updateStockTotalDisplay(){
   const el = document.getElementById('stockTotalNum');
   if(!el || !selectedStockStudio) return;
   el.textContent = totalStockForStudio(selectedStockStudio);
+  renderStockAllTotal();
 }
 
 // ---------- stock sold by month ----------
@@ -6081,6 +6113,7 @@ document.getElementById('stockMatrixToggle').addEventListener('click', ()=>{
 });
 
 function renderStockView(){
+  renderStockAllTotal();
   setupStockStepPicker();
   populateStockStudioSelect();
   renderStockStudioDetail();
